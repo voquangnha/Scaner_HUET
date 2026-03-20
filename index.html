@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HUET SCANNER v4.6 - ULTIMATE PRECISION</title>
+    <title>HUET SCANNER v4.7 - IPHONE ROTATION FIX</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
@@ -31,17 +31,12 @@
         .btn-pdf { background: #ff5252; color: white; flex: 1.2; height: 50px; font-size: 0.8rem; }
         .btn-reset { background: #333; color: white; width: 50px; height: 50px; font-size: 1.2rem; }
 
-        /* MODAL CROP - SỬA LỖI KHUẤT NÚT BẰNG LỀ AN TOÀN */
+        /* MODAL CROP */
         .modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
-        
-        /* Chừa lề an toàn cố định 120px ở dưới cho các nút */
         #crop-area { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #080808; margin-bottom: 120px; } 
-        
         #source-img { max-width: 95%; max-height: 95%; object-fit: contain; }
-        /* Tăng kích thước vòng tròn xanh để dễ kéo hơn */
         .handle { width: 44px; height: 44px; background: rgba(0,229,255,0.4); border: 2px solid #fff; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); touch-action: none; z-index: 10001; }
 
-        /* Footer cố định ở dưới, không bao giờ bị khuất */
         .modal-footer { position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: #111; display: flex; gap: 10px; padding: 15px; box-sizing: border-box; align-items: center; padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
     </style>
 </head>
@@ -54,7 +49,7 @@
     <div id="gallery-section"></div>
 
     <div id="control-section">
-        <div id="status" style="font-size: 0.75rem; color: var(--primary); margin-bottom: 8px; font-weight: bold;">SẴN SÀNG QUÉT TÀI LIỆU</div>
+        <div id="status" style="font-size: 0.75rem; color: var(--primary); margin-bottom: 8px; font-weight: bold;">SẴN SÀNG QUÉT (XOAY CỐ ĐỊNH)</div>
         <div class="btn-row">
             <button class="btn btn-reset" onclick="location.reload()">🔄</button>
             <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TRANG MỚI</button>
@@ -74,11 +69,11 @@
         </div>
         <div class="modal-footer">
             <button class="btn" style="background:#555; color:#fff; flex:1; height:55px;" onclick="closeModal()">HỦY BỎ</button>
-            <button class="btn" style="background:#4caf50; color:#fff; flex:2; height:55px;" onclick="doCrop()">✅ XÁC NHẬN CẮT</button>
+            <button class="btn" style="background:#4caf50; color:#fff; flex:2; height:55px;" onclick="doCrop()">✅ XÁC NHẬN CẮT & XOAY</button>
         </div>
     </div>
 
-    <canvas id="hid-can" style="display:none;"></canvas>
+    <canvas id="clean-canvas" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
@@ -106,32 +101,44 @@
         }
 
         btnSnap.onclick = () => {
-            const can = document.getElementById('hid-can');
-            const ctx = can.getContext('2d');
-            can.width = video.videoWidth; can.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-            rawData = can.toDataURL('image/jpeg', 0.9);
+            status.innerText = "Đang chụp và làm sạch hướng ảnh...";
             
-            const sImg = document.getElementById('source-img');
-            sImg.src = rawData;
-            document.getElementById('crop-modal').style.display = 'flex';
+            const rawCanvas = document.createElement('canvas');
+            const rawCtx = rawCanvas.getContext('2d');
+            rawCanvas.width = video.videoWidth; 
+            rawCanvas.height = video.videoHeight;
+            rawCtx.drawImage(video, 0, 0);
+
+            // BƯỚC QUAN TRỌNG: Làm sạch ảnh (Khử EXIF Rotation)
+            const cleanCanvas = document.getElementById('clean-canvas');
+            const cleanCtx = cleanCanvas.getContext('2d');
+            const tempImg = new Image();
+            tempImg.src = rawCanvas.toDataURL('image/jpeg', 0.9);
             
-            // Đặt 4 góc mặc định (không dùng tự động nữa)
-            setTimeout(() => {
-                const r = sImg.getBoundingClientRect();
-                const padX = r.width * 0.1; // Chừa lề 10%
-                const padY = r.height * 0.1;
-                pts = [
-                    {x:r.left+padX,y:r.top+padY},    // Trên - Trái
-                    {x:r.right-padX,y:r.top+padY},   // Trên - Phải
-                    {x:r.right-padX,y:r.bottom-padY},// Dưới - Phải
-                    {x:r.left+padX,y:r.bottom-padY} // Dưới - Trái
-                ];
-                draw();
-            }, 300);
+            tempImg.onload = () => {
+                // Ép buộc vẽ lại ảnh theo hướng ngang
+                cleanCanvas.width = tempImg.width; 
+                cleanCanvas.height = tempImg.height;
+                cleanCtx.drawImage(tempImg, 0, 0);
+                
+                // Bây giờ rawData đã là ảnh sạch hoàn toàn
+                rawData = cleanCanvas.toDataURL('image/jpeg', 0.9);
+                
+                const sImg = document.getElementById('source-img');
+                sImg.src = rawData;
+                document.getElementById('crop-modal').style.display = 'flex';
+                
+                setTimeout(() => {
+                    const r = sImg.getBoundingClientRect();
+                    const padX = r.width * 0.1;
+                    const padY = r.height * 0.1;
+                    pts = [{x:r.left+padX,y:r.top+padY},{x:r.right-padX,y:r.top+padY},{x:r.right-padX,y:r.bottom-padY},{x:r.left+padX,y:r.bottom-padY}];
+                    draw();
+                    status.innerText = "Hãy kéo thả 4 góc vào tờ giấy.";
+                }, 300);
+            };
         };
 
-        // Xử lý kéo thả bằng tay (Touch)
         handles.forEach((h, i) => {
             h.ontouchmove = (e) => {
                 const t = e.touches[0];
@@ -152,10 +159,10 @@
         function closeModal() { document.getElementById('crop-modal').style.display = 'none'; }
 
         function doCrop() {
-            status.innerText = "Đang xử lý cắt xén thủ công...";
+            status.innerText = "Đang thực hiện ép phẳng và xoay thẳng...";
             const can = document.createElement('canvas');
             const img = new Image();
-            img.src = rawData;
+            img.src = rawData; // Dùng ảnh đã làm sạch EXIF
             img.onload = () => {
                 const r = document.getElementById('source-img').getBoundingClientRect();
                 const sx = img.width/r.width, sy = img.height/r.height;
@@ -168,13 +175,15 @@
                 let dPts = cv.matFromArray(4,1,cv.CV_32FC2,[0,0,w,0,w,h,0,h]);
                 let M = cv.getPerspectiveTransform(sPts, dPts);
                 cv.warpPerspective(sM, dM, M, new cv.Size(w, h));
+                
                 can.width = w; can.height = h;
                 cv.imshow(can, dM);
+                
                 pages.push({ data: can.toDataURL('image/jpeg', 0.8), w: w, h: h });
                 renderGallery();
                 sM.delete(); dM.delete(); sPts.delete(); dPts.delete(); M.delete();
                 closeModal();
-                status.innerText = "Đã lưu trang " + pages.length;
+                status.innerText = "Đã lưu và xoay thẳng trang " + pages.length;
             };
         }
 
@@ -201,7 +210,7 @@
                 if (fh > 277) { fh = 277; fw = fh * ratio; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("HUET_Scanner_Precision.pdf");
+            doc.save("HUET_Scan_ZeroGravity.pdf");
         }
 
         startCamera();
