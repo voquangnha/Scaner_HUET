@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HUET SCANNER PRO v2.0 - THPT PHÚ BÀI</title>
+    <title>HUET SCANNER PRO v2.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root { --primary: #00e5ff; --bg: #121212; --panel: #1e1e1e; }
@@ -44,7 +44,7 @@
 
     <div class="header">
         <h2 style="margin:0; font-size:1.2rem;">HUET SCANNER PRO v2.0</h2>
-        <p style="margin:4px 0 0; font-size:0.75rem; color:#ffca28;">DỰ ÁN STEM: THẦY VÕ QUANG NHÃ</p>
+        <p style="margin:4px 0 0; font-size:0.75rem; color:#ffca28;">DỰ ÁN: THẦY VÕ QUANG NHÃ</p>
     </div>
 
     <div id="camera-view">
@@ -79,7 +79,7 @@
     <div id="status">Đang khởi tạo máy ảnh...</div>
     <canvas id="hidden-canvas" style="display:none;"></canvas>
 
-    <div class="footer">Thiết kế bởi: <b>Võ Quang Nhã</b> - THPT Phú Bài</div>
+    <div class="footer">Thiết kế bởi: <b>Võ Quang Nhã</b> - HUET</div>
 
     <script>
         const video = document.getElementById('webcam');
