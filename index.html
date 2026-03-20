@@ -3,45 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HUET SCANNER v3.5 - A4 STANDARD</title>
+    <title>HUET SCANNER v3.7 - IPHONE READY</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
         :root { --primary: #00e5ff; --bg: #121212; }
         body { margin: 0; font-family: 'Segoe UI', Arial; background: var(--bg); color: white; display: flex; flex-direction: column; align-items: center; }
         .header { width: 100%; background: #1a237e; padding: 12px 0; text-align: center; border-bottom: 2px solid var(--primary); }
-        #view { width: 95%; max-width: 500px; height: 45vh; margin-top: 10px; border-radius: 12px; overflow: hidden; position: relative; border: 2px solid #333; }
+        #view { width: 95%; max-width: 500px; height: 45vh; margin-top: 10px; border-radius: 12px; overflow: hidden; position: relative; border: 2px solid #333; background: #000; }
         video { width: 100%; height: 100%; object-fit: cover; }
         .gallery { width: 95%; display: flex; overflow-x: auto; gap: 8px; padding: 15px 0; min-height: 90px; }
         .thumb { width: 65px; height: 85px; object-fit: cover; border-radius: 5px; border: 2px solid #444; flex-shrink: 0; }
         .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; margin-top: 10px; }
-        .btn { padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+        .btn { padding: 15px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 0.9rem; -webkit-appearance: none; }
         .btn-snap { background: var(--primary); color: #1a237e; grid-column: span 2; }
         .btn-pdf { background: #ff5252; color: white; }
-        #status { margin: 10px 0; font-size: 0.8rem; color: var(--primary); }
+        #status { margin: 10px 0; font-size: 0.8rem; color: var(--primary); font-weight: bold; text-align: center; padding: 0 10px; }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h2 style="margin:0; font-size:1.1rem;">HUET SCANNER v3.5</h2>
-        <p style="margin:2px 0 0; font-size:0.7rem; color:#ffca28;">DỰ ÁN - THẦY VÕ QUANG NHÃ</p>
+        <h2 style="margin:0; font-size:1.1rem;">HUET SCANNER v3.7</h2>
+        <p style="margin:2px 0 0; font-size:0.7rem; color:#ffca28;">DỰ ÁN - THẦY NHÃ</p>
     </div>
 
     <div id="view">
-        <video id="webcam" autoplay playsinline></video>
+        <video id="webcam" autoplay playsinline muted></video>
     </div>
 
     <div class="gallery" id="gallery"></div>
 
+    <div id="status">Đang tải bộ não xử lý OpenCV...</div>
+
     <div class="btn-group">
-        <button id="btn-snap" class="btn btn-snap" disabled>📸 ĐANG TẢI THƯ VIỆN...</button>
+        <button id="btn-snap" class="btn btn-snap" disabled>📸 ĐANG KHỞI TẠO...</button>
         <button class="btn btn-pdf" onclick="exportA4PDF()">📄 XUẤT PDF A4 (<span id="count">0</span>)</button>
         <button class="btn" style="background:#546e7a; color:white;" onclick="location.reload()">🔄 LÀM MỚI</button>
     </div>
 
-    <div id="status">Vui lòng đợi OpenCV...</div>
     <canvas id="proc-canvas" style="display:none;"></canvas>
+    <canvas id="output-canvas" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
@@ -51,86 +53,137 @@
         let pages = [];
 
         function onCvReady() {
-            btnSnap.innerText = "📸 CHỤP & CĂN LỀ A4";
+            btnSnap.innerText = "📸 QUÉT & TỰ ĐỘNG CROP";
             btnSnap.disabled = false;
-            status.innerText = "Đã sẵn sàng căn lề chuẩn!";
+            status.innerText = "Sẵn sàng! Hãy chụp ở nơi đủ sáng.";
         }
 
         async function startCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: 1280, height: 720 } 
-            });
-            video.srcObject = stream;
+            try {
+                const constraints = {
+                    video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+                };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+            } catch (err) {
+                status.innerText = "Lỗi Camera: " + err.message;
+            }
         }
 
         btnSnap.onclick = () => {
             const canvas = document.getElementById('proc-canvas');
+            const outCanvas = document.getElementById('output-canvas');
             const ctx = canvas.getContext('2d');
+            
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
 
-            // Xử lý cắt xén và chuẩn hóa tỉ lệ (Giả lập Perspective Transform thông qua Crop)
-            const finalData = canvas.toDataURL('image/jpeg', 0.8);
-            pages.push({
-                data: finalData,
-                w: canvas.width,
-                h: canvas.height
-            });
+            status.innerText = "Đang xử lý ảnh iPhone...";
             
-            const img = document.createElement('img');
-            img.src = finalData;
-            img.className = 'thumb';
-            gallery.appendChild(img);
-            
-            document.getElementById('count').innerText = pages.length;
-            status.innerText = "Đã lưu trang và căn lề!";
+            try {
+                let src = cv.imread(canvas);
+                let dst = new cv.Mat();
+                cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+                cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+                cv.Canny(dst, dst, 75, 200);
+
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+                cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let maxArea = 0;
+                let poly = new cv.Mat();
+                for (let i = 0; i < contours.size(); ++i) {
+                    let cnt = contours.get(i);
+                    let peri = cv.arcLength(cnt, true);
+                    let approx = new cv.Mat();
+                    cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+                    if (approx.rows == 4 && cv.contourArea(cnt) > maxArea) {
+                        maxArea = cv.contourArea(cnt);
+                        approx.copyTo(poly);
+                    }
+                    approx.delete();
+                }
+
+                let finalData;
+                let finalW, finalH;
+
+                if (maxArea > 15000) {
+                    let pts = [];
+                    for (let i = 0; i < 4; i++) {
+                        pts.push({ x: poly.data32S[i * 2], y: poly.data32S[i * 2 + 1] });
+                    }
+                    pts.sort((a, b) => a.y - b.y);
+                    let tl = pts[0].x < pts[1].x ? pts[0] : pts[1];
+                    let tr = pts[0].x < pts[1].x ? pts[1] : pts[0];
+                    let bl = pts[2].x < pts[3].x ? pts[2] : pts[3];
+                    let br = pts[2].x < pts[3].x ? pts[3] : pts[2];
+
+                    let w = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+                    let h = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+
+                    outCanvas.width = w; outCanvas.height = h;
+                    let srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                    let dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
+                    let M = cv.getPerspectiveTransform(srcPts, dstPts);
+                    let finalDst = new cv.Mat();
+                    cv.warpPerspective(src, finalDst, M, new cv.Size(w, h));
+                    
+                    cv.imshow(outCanvas, finalDst);
+                    // ÉP KIỂU SANG JPEG CHO IPHONE
+                    finalData = outCanvas.toDataURL('image/jpeg', 0.9);
+                    finalW = w; finalH = h;
+
+                    finalDst.delete(); srcPts.delete(); dstPts.delete(); M.delete();
+                } else {
+                    status.innerText = "Không rõ mép, đang chụp ảnh gốc...";
+                    finalData = canvas.toDataURL('image/jpeg', 0.8);
+                    finalW = canvas.width; finalH = canvas.height;
+                }
+
+                pages.push({ data: finalData, w: finalW, h: finalH });
+                
+                const img = document.createElement('img');
+                img.src = finalData;
+                img.className = 'thumb';
+                gallery.appendChild(img);
+                document.getElementById('count').innerText = pages.length;
+                status.innerText = "Đã lưu trang thành dạng JPEG!";
+
+                src.delete(); dst.delete(); contours.delete(); hierarchy.delete(); poly.delete();
+            } catch (err) {
+                status.innerText = "Lỗi xử lý. Hãy thử lại!";
+            }
         };
 
         function exportA4PDF() {
-            if (pages.length === 0) return alert("Chưa có trang nào!");
+            if (pages.length === 0) return alert("Cô hãy chụp ít nhất 1 trang!");
             const { jsPDF } = window.jspdf;
-            
-            // Tạo PDF khổ A4 (210mm x 297mm)
             const doc = new jsPDF('p', 'mm', 'a4');
-            const pageWidth = 210;
-            const pageHeight = 297;
-            const margin = 10; // Căn lề 10mm mỗi bên
-            const printWidth = pageWidth - (margin * 2);
-            const printHeight = pageHeight - (margin * 2);
+            const pageWidth = 210; const pageHeight = 297;
+            const margin = 10;
+            const printW = pageWidth - (margin * 2);
+            const printH = pageHeight - (margin * 2);
 
             pages.forEach((p, i) => {
                 if (i > 0) doc.addPage();
-
-                // Tính toán tỉ lệ để không bị méo hình
                 const ratio = p.w / p.h;
                 let finalW, finalH;
 
-                if (ratio > 1) { // Ảnh ngang
-                    doc.setPage(i + 1, 'l'); // Đổi trang này sang nằm ngang
-                    finalH = printWidth; // Đảo chiều vì trang đã xoay
-                    finalW = finalH * ratio;
-                    if (finalW > 277) { // 297 - 20 lề
-                        finalW = 277;
-                        finalH = finalW / ratio;
-                    }
+                if (ratio > 1) {
+                    doc.setPage(i + 1, 'l');
+                    finalH = printW; finalW = finalH * ratio;
+                    if (finalW > 277) { finalW = 277; finalH = finalW / ratio; }
                     doc.addImage(p.data, 'JPEG', margin, margin, finalW, finalH);
-                } else { // Ảnh dọc
-                    finalW = printWidth;
-                    finalH = finalW / ratio;
-                    // Nếu ảnh quá dài, thu nhỏ theo chiều cao
-                    if (finalH > printHeight) {
-                        finalH = printHeight;
-                        finalW = finalH * ratio;
-                    }
-                    // Căn giữa trang
-                    const xOffset = (pageWidth - finalW) / 2;
-                    doc.addImage(p.data, 'JPEG', xOffset, margin, finalW, finalH);
+                } else {
+                    finalW = printW; finalH = finalW / ratio;
+                    if (finalH > printH) { finalH = printH; finalW = finalH * ratio; }
+                    doc.addImage(p.data, 'JPEG', (pageWidth - finalW) / 2, margin, finalW, finalH);
                 }
             });
-
-            doc.save("STEM_PhuBai_Standard_A4.pdf");
-            status.innerText = "PDF đã sẵn sàng để in!";
+            doc.save("Scan_HUET_iPhone_Standard.pdf");
+            status.innerText = "PDF đã tải về thành công!";
         }
 
         startCamera();
