@@ -2,75 +2,93 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HUET SCANNER v4.2 - MOBILE OPTIMIZED</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HUET SCANNER v4.3 - ZERO OVERFLOW</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #121212; --panel: #1e1e1e; }
-        body { margin: 0; font-family: 'Segoe UI', Arial; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+        :root { --primary: #00e5ff; --bg: #000; --panel: #1a1a1a; }
         
-        /* 1. Vùng Camera (60% chiều cao) */
-        #camera-section { width: 100%; height: 60%; position: relative; background: #000; border-bottom: 2px solid #333; }
+        /* Chống tràn toàn màn hình */
+        html, body { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            overflow: hidden; background: var(--bg); font-family: -apple-system, system-ui, sans-serif;
+        }
+
+        body { display: flex; flex-direction: column; }
+
+        /* 1. Vùng Camera (Chiếm khoảng 55% và tự co giãn) */
+        #camera-section { 
+            flex: 55; position: relative; background: #000; 
+            border-bottom: 1px solid #333; overflow: hidden;
+        }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .scan-overlay { position: absolute; top: 10%; left: 10%; right: 10%; bottom: 10%; border: 1px dashed rgba(0,229,255,0.4); pointer-events: none; }
 
-        /* 2. Vùng Gallery (15% chiều cao) */
-        #gallery-section { width: 100%; height: 15%; background: var(--panel); display: flex; align-items: center; padding: 5px 10px; box-sizing: border-box; overflow-x: auto; gap: 10px; }
-        .thumb-box { position: relative; height: 80%; flex-shrink: 0; aspect-ratio: 3/4; }
-        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 2px solid #444; }
-        .page-num { position: absolute; bottom: 2px; right: 2px; background: var(--primary); color: #000; font-size: 0.6rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
+        /* 2. Vùng Gallery (Chiếm 15%) */
+        #gallery-section { 
+            flex: 15; background: var(--panel); display: flex; 
+            align-items: center; padding: 5px 10px; overflow-x: auto; gap: 8px;
+        }
+        .thumb-box { position: relative; height: 90%; aspect-ratio: 3/4; flex-shrink: 0; }
+        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid #555; }
+        .page-num { position: absolute; top: -5px; right: -5px; background: var(--primary); color: #000; font-size: 0.6rem; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; }
 
-        /* 3. Vùng Điều khiển (25% chiều cao) */
-        #control-section { width: 100%; height: 25%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding-bottom: env(safe-area-inset-bottom); }
-        .btn-row { width: 90%; display: flex; gap: 10px; justify-content: center; }
-        .btn { padding: 12px 20px; border: none; border-radius: 12px; font-weight: bold; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
-        .btn:active { transform: scale(0.95); opacity: 0.8; }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1rem; box-shadow: 0 4px 15px rgba(0,229,255,0.3); }
-        .btn-pdf { background: #ff5252; color: white; flex: 1; }
-        .btn-tool { background: #444; color: white; width: 45px; height: 45px; padding: 0; display: flex; align-items: center; justify-content: center; }
-
-        /* Modal Crop & Review */
-        .modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 1000; display: none; flex-direction: column; }
-        #crop-area { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
-        #source-img { max-width: 95%; max-height: 95%; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        .handle { width: 34px; height: 34px; background: rgba(0,229,255,0.6); border: 2px solid white; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); touch-action: none; }
+        /* 3. Vùng Điều khiển (Chiếm 30% - Bao gồm vùng an toàn iPhone) */
+        #control-section { 
+            flex: 30; background: #111; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; 
+            padding-bottom: env(safe-area-inset-bottom); /* Tránh lẹm vào thanh gạt iPhone */
+        }
         
-        #status-text { font-size: 0.7rem; color: var(--primary); letter-spacing: 1px; }
+        .status-bar { font-size: 0.7rem; color: var(--primary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .btn-row { width: 92%; display: flex; gap: 8px; align-items: center; }
+        .btn { border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn:active { opacity: 0.7; transform: scale(0.95); }
+        
+        .btn-snap { background: var(--primary); color: #000; flex: 2; height: 55px; font-size: 1rem; }
+        .btn-pdf { background: #ff5252; color: white; flex: 1.2; height: 55px; font-size: 0.85rem; }
+        .btn-reset { background: #333; color: white; width: 55px; height: 55px; font-size: 1.2rem; }
+
+        /* Modal Crop - Đảm bảo không tràn */
+        .modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
+        #crop-area { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #080808; }
+        #source-img { max-width: 90%; max-height: 90%; object-fit: contain; }
+        .handle { width: 36px; height: 36px; background: rgba(0,229,255,0.5); border: 2px solid #fff; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); touch-action: none; }
+
+        .modal-footer { padding: 15px; background: #111; display: flex; gap: 10px; padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
     </style>
 </head>
 <body>
 
     <div id="camera-section">
         <video id="webcam" autoplay playsinline muted></video>
-        <div class="scan-overlay"></div>
     </div>
 
-    <div id="gallery-section">
-        </div>
+    <div id="gallery-section"></div>
 
     <div id="control-section">
-        <div id="status-text">Đang khởi động hệ thống...</div>
+        <div class="status-bar" id="status">Đang tải bộ não OpenCV...</div>
         <div class="btn-row">
-            <button class="btn btn-tool" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TÀI LIỆU</button>
+            <button class="btn btn-reset" onclick="location.reload()">🔄</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TRANG</button>
             <button class="btn btn-pdf" onclick="exportPDF()">XUẤT PDF (<span id="count">0</span>)</button>
         </div>
     </div>
 
     <div id="crop-modal" class="modal">
-        <div style="padding: 15px; text-align: center; background: #1a237e; font-size: 0.9rem;">CĂN CHỈNH GÓC TÀI LIỆU</div>
+        <div style="padding: 15px; text-align: center; font-weight: bold; color: var(--primary);">KÉO 4 GÓC ĐỂ CHỈNH TỜ GIẤY</div>
         <div id="crop-area">
             <img id="source-img" src="">
             <div id="p0" class="handle"></div><div id="p1" class="handle"></div>
             <div id="p2" class="handle"></div><div id="p3" class="handle"></div>
-            <svg style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
-                <polygon id="poly" points="" style="fill:rgba(0,229,255,0.2); stroke:white; stroke-width:2;" />
+            <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+                <polygon id="poly" points="" style="fill:rgba(0,229,255,0.2); stroke:#fff; stroke-width:2;" />
             </svg>
         </div>
-        <div class="btn-row" style="background:#1e1e1e; padding: 15px;">
-            <button class="btn" style="background:#555; color:white; flex:1;" onclick="closeModal()">HỦY</button>
-            <button class="btn" style="background:#4caf50; color:white; flex:2;" onclick="doCrop()">XÁC NHẬN LẤY TRANG</button>
+        <div class="modal-footer">
+            <button class="btn" style="background:#444; color:#fff; flex:1;" onclick="closeModal()">HỦY</button>
+            <button class="btn" style="background:#4caf50; color:#fff; flex:2;" onclick="doCrop()">XÁC NHẬN</button>
         </div>
     </div>
 
@@ -78,7 +96,7 @@
 
     <script>
         const video = document.getElementById('webcam');
-        const status = document.getElementById('status-text');
+        const status = document.getElementById('status');
         const btnSnap = document.getElementById('btn-snap');
         const gallery = document.getElementById('gallery-section');
         const handles = [document.getElementById('p0'), document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
@@ -94,10 +112,12 @@
         }
 
         async function startCamera() {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "environment", width: 1280, height: 720 } 
-            });
-            video.srcObject = stream;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: 1280, height: 720 } 
+                });
+                video.srcObject = stream;
+            } catch (e) { status.innerText = "LỖI CAMERA!"; }
         }
 
         btnSnap.onclick = () => {
@@ -116,7 +136,7 @@
                 const p = 30;
                 pts = [{x:r.left+p,y:r.top+p},{x:r.right-p,y:r.top+p},{x:r.right-p,y:r.bottom-p},{x:r.left+p,y:r.bottom-p}];
                 draw();
-            }, 200);
+            }, 300);
         };
 
         handles.forEach((h, i) => {
@@ -157,19 +177,19 @@
                 can.width = w; can.height = h;
                 cv.imshow(can, dM);
                 pages.push({ data: can.toDataURL('image/jpeg', 0.8), w: w, h: h });
-                refreshGallery();
+                renderGallery();
                 sM.delete(); dM.delete(); sPts.delete(); dPts.delete(); M.delete();
                 closeModal();
             };
         }
 
-        function refreshGallery() {
+        function renderGallery() {
             gallery.innerHTML = '';
             pages.forEach((p, i) => {
                 const div = document.createElement('div');
                 div.className = 'thumb-box';
                 div.innerHTML = `<img src="${p.data}" class="thumb"><span class="page-num">${i+1}</span>`;
-                div.onclick = () => { if(confirm("Xóa trang này?")) { pages.splice(i,1); refreshGallery(); } };
+                div.onclick = () => { if(confirm("Xóa trang " + (i+1) + "?")) { pages.splice(i,1); renderGallery(); } };
                 gallery.appendChild(div);
             });
             document.getElementById('count').innerText = pages.length;
@@ -186,7 +206,7 @@
                 if (fh > 277) { fh = 277; fw = fh * ratio; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("HUET_Scan_Mobile.pdf");
+            doc.save("HUET_Scanner_v4.3.pdf");
         }
 
         startCamera();
