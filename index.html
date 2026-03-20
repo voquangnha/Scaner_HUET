@@ -3,100 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HUET SCANNER v4.1 - REVIEW & EDIT</title>
+    <title>HUET SCANNER v4.2 - MOBILE OPTIMIZED</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #000; --panel: #1e1e1e; }
-        body { margin: 0; font-family: 'Segoe UI', Arial; background: var(--bg); color: white; overflow: hidden; touch-action: none; }
+        :root { --primary: #00e5ff; --bg: #121212; --panel: #1e1e1e; }
+        body { margin: 0; font-family: 'Segoe UI', Arial; background: var(--bg); color: white; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
         
-        #camera-container { width: 100vw; height: 70vh; position: relative; overflow: hidden; }
+        /* 1. Vùng Camera (60% chiều cao) */
+        #camera-section { width: 100%; height: 60%; position: relative; background: #000; border-bottom: 2px solid #333; }
         video { width: 100%; height: 100%; object-fit: cover; }
+        .scan-overlay { position: absolute; top: 10%; left: 10%; right: 10%; bottom: 10%; border: 1px dashed rgba(0,229,255,0.4); pointer-events: none; }
 
-        .bottom-bar { height: 30vh; background: var(--panel); display: flex; flex-direction: column; align-items: center; border-top: 2px solid #333; }
-        .gallery { width: 95%; display: flex; overflow-x: auto; gap: 10px; padding: 10px 0; height: 80px; align-items: center; }
-        .thumb-container { position: relative; flex-shrink: 0; }
-        .thumb { width: 55px; height: 75px; object-fit: cover; border-radius: 4px; border: 2px solid #555; cursor: pointer; }
-        .thumb.active { border-color: var(--primary); }
+        /* 2. Vùng Gallery (15% chiều cao) */
+        #gallery-section { width: 100%; height: 15%; background: var(--panel); display: flex; align-items: center; padding: 5px 10px; box-sizing: border-box; overflow-x: auto; gap: 10px; }
+        .thumb-box { position: relative; height: 80%; flex-shrink: 0; aspect-ratio: 3/4; }
+        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 2px solid #444; }
+        .page-num { position: absolute; bottom: 2px; right: 2px; background: var(--primary); color: #000; font-size: 0.6rem; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
 
-        /* Modal Crop tay */
-        #crop-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 1000; display: none; flex-direction: column; }
-        #crop-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
-        #source-img { max-width: 100%; max-height: 100%; }
-        .corner-handle { width: 35px; height: 35px; background: rgba(0, 229, 255, 0.5); border: 2px solid white; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); z-index: 1001; }
-
-        /* Modal Xem lại ảnh (Review) */
-        #review-modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); z-index: 2000; display: none; flex-direction: column; align-items: center; justify-content: center; }
-        #review-img { max-width: 90%; max-height: 75%; border: 2px solid #444; }
-
-        .btn-group { display: flex; gap: 8px; padding: 10px; width: 100%; justify-content: center; }
-        .btn { padding: 12px 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1.1rem; }
+        /* 3. Vùng Điều khiển (25% chiều cao) */
+        #control-section { width: 100%; height: 25%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding-bottom: env(safe-area-inset-bottom); }
+        .btn-row { width: 90%; display: flex; gap: 10px; justify-content: center; }
+        .btn { padding: 12px 20px; border: none; border-radius: 12px; font-weight: bold; font-size: 0.9rem; cursor: pointer; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
+        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1rem; box-shadow: 0 4px 15px rgba(0,229,255,0.3); }
         .btn-pdf { background: #ff5252; color: white; flex: 1; }
-        .btn-del { background: #d32f2f; color: white; margin-top: 15px; }
+        .btn-tool { background: #444; color: white; width: 45px; height: 45px; padding: 0; display: flex; align-items: center; justify-content: center; }
+
+        /* Modal Crop & Review */
+        .modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 1000; display: none; flex-direction: column; }
+        #crop-area { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+        #source-img { max-width: 95%; max-height: 95%; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .handle { width: 34px; height: 34px; background: rgba(0,229,255,0.6); border: 2px solid white; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); touch-action: none; }
         
-        #status { font-size: 0.75rem; color: var(--primary); padding: 5px; }
+        #status-text { font-size: 0.7rem; color: var(--primary); letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
-    <div id="camera-container">
+    <div id="camera-section">
         <video id="webcam" autoplay playsinline muted></video>
+        <div class="scan-overlay"></div>
     </div>
 
-    <div class="bottom-bar">
-        <div id="status">Đang tải bộ não OpenCV...</div>
-        <div class="gallery" id="gallery"></div>
-        <div class="btn-group">
-            <button class="btn" style="background:#444; color:white;" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP TRANG</button>
-            <button class="btn btn-pdf" onclick="exportPDF()">📄 XUẤT PDF (<span id="count">0</span>)</button>
+    <div id="gallery-section">
+        </div>
+
+    <div id="control-section">
+        <div id="status-text">Đang khởi động hệ thống...</div>
+        <div class="btn-row">
+            <button class="btn btn-tool" onclick="location.reload()">🔄</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TÀI LIỆU</button>
+            <button class="btn btn-pdf" onclick="exportPDF()">XUẤT PDF (<span id="count">0</span>)</button>
         </div>
     </div>
 
-    <div id="crop-modal">
-        <div style="padding: 10px; text-align: center; background: #1a237e;">CHỈNH 4 GÓC TỜ GIẤY</div>
-        <div id="crop-container">
+    <div id="crop-modal" class="modal">
+        <div style="padding: 15px; text-align: center; background: #1a237e; font-size: 0.9rem;">CĂN CHỈNH GÓC TÀI LIỆU</div>
+        <div id="crop-area">
             <img id="source-img" src="">
-            <div id="p0" class="corner-handle"></div><div id="p1" class="corner-handle"></div>
-            <div id="p2" class="corner-handle"></div><div id="p3" class="corner-handle"></div>
-            <svg id="svg-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
-                <polygon id="poly-mask" points="" style="fill:rgba(0,229,255,0.2); stroke:white; stroke-width:2;" />
+            <div id="p0" class="handle"></div><div id="p1" class="handle"></div>
+            <div id="p2" class="handle"></div><div id="p3" class="handle"></div>
+            <svg style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                <polygon id="poly" points="" style="fill:rgba(0,229,255,0.2); stroke:white; stroke-width:2;" />
             </svg>
         </div>
-        <div class="btn-group" style="background: #1e1e1e;">
-            <button class="btn" style="background:#555; color:white; flex:1;" onclick="closeCrop()">HỦY</button>
-            <button class="btn" style="background:#4caf50; color:white; flex:2;" onclick="processManualCrop()">XÁC NHẬN CẮT</button>
+        <div class="btn-row" style="background:#1e1e1e; padding: 15px;">
+            <button class="btn" style="background:#555; color:white; flex:1;" onclick="closeModal()">HỦY</button>
+            <button class="btn" style="background:#4caf50; color:white; flex:2;" onclick="doCrop()">XÁC NHẬN LẤY TRANG</button>
         </div>
     </div>
 
-    <div id="review-modal">
-        <h3 id="review-title">Trang số 1</h3>
-        <img id="review-img" src="">
-        <button class="btn btn-del" onclick="deleteCurrentPage()">🗑️ XÓA TRANG NÀY</button>
-        <button class="btn" style="background:var(--primary); color:#000; margin-top:15px; width:80%;" onclick="closeReview()">ĐÓNG XEM LẠI</button>
-    </div>
-
-    <canvas id="hidden-canvas" style="display:none;"></canvas>
+    <canvas id="hid-can" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
-        const status = document.getElementById('status');
+        const status = document.getElementById('status-text');
         const btnSnap = document.getElementById('btn-snap');
-        const gallery = document.getElementById('gallery');
-        const cropModal = document.getElementById('crop-modal');
-        const reviewModal = document.getElementById('review-modal');
+        const gallery = document.getElementById('gallery-section');
         const handles = [document.getElementById('p0'), document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
         
         let pages = [];
-        let rawImgData = null;
-        let points = [];
-        let currentReviewIdx = -1;
+        let rawData = null;
+        let pts = [];
 
         function onCvReady() {
-            btnSnap.innerText = "📸 CHỤP ẢNH";
+            btnSnap.innerText = "📸 CHỤP TRANG MỚI";
             btnSnap.disabled = false;
-            status.innerText = "Sẵn sàng!";
+            status.innerText = "SẴN SÀNG QUÉT TÀI LIỆU";
         }
 
         async function startCamera() {
@@ -107,108 +101,79 @@
         }
 
         btnSnap.onclick = () => {
-            const canvas = document.getElementById('hidden-canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            const can = document.getElementById('hid-can');
+            const ctx = can.getContext('2d');
+            can.width = video.videoWidth; can.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
-            rawImgData = canvas.toDataURL('image/jpeg', 0.9);
+            rawData = can.toDataURL('image/jpeg', 0.9);
             
-            const srcImg = document.getElementById('source-img');
-            srcImg.src = rawImgData;
-            cropModal.style.display = 'flex';
+            const sImg = document.getElementById('source-img');
+            sImg.src = rawData;
+            document.getElementById('crop-modal').style.display = 'flex';
             
             setTimeout(() => {
-                const rect = srcImg.getBoundingClientRect();
-                const pad = 40;
-                points = [
-                    {x: rect.left + pad, y: rect.top + pad},
-                    {x: rect.right - pad, y: rect.top + pad},
-                    {x: rect.right - pad, y: rect.bottom - pad},
-                    {x: rect.left + pad, y: rect.bottom - pad}
-                ];
-                updateHandles();
-            }, 150);
+                const r = sImg.getBoundingClientRect();
+                const p = 30;
+                pts = [{x:r.left+p,y:r.top+p},{x:r.right-p,y:r.top+p},{x:r.right-p,y:r.bottom-p},{x:r.left+p,y:r.bottom-p}];
+                draw();
+            }, 200);
         };
 
-        // Xử lý kéo thả (Touch)
         handles.forEach((h, i) => {
             h.ontouchmove = (e) => {
                 const t = e.touches[0];
-                points[i] = { x: t.clientX, y: t.clientY };
-                updateHandles();
+                pts[i] = { x: t.clientX, y: t.clientY };
+                draw();
             };
         });
 
-        function updateHandles() {
-            let ptsStr = "";
+        function draw() {
+            let s = "";
             handles.forEach((h, i) => {
-                h.style.left = points[i].x + 'px';
-                h.style.top = points[i].y + 'px';
-                ptsStr += `${points[i].x},${points[i].y} `;
+                h.style.left = pts[i].x + 'px'; h.style.top = pts[i].y + 'px';
+                s += `${pts[i].x},${pts[i].y} `;
             });
-            document.getElementById('poly-mask').setAttribute("points", ptsStr);
+            document.getElementById('poly').setAttribute("points", s);
         }
 
-        function closeCrop() { cropModal.style.display = 'none'; }
+        function closeModal() { document.getElementById('crop-modal').style.display = 'none'; }
 
-        function processManualCrop() {
-            const canvas = document.createElement('canvas');
+        function doCrop() {
+            const can = document.createElement('canvas');
             const img = new Image();
-            img.src = rawImgData;
+            img.src = rawData;
             img.onload = () => {
-                const rect = document.getElementById('source-img').getBoundingClientRect();
-                const sx = img.width / rect.width;
-                const sy = img.height / rect.height;
-                const fP = points.map(p => ({ x: (p.x - rect.left) * sx, y: (p.y - rect.top) * sy }));
-
+                const r = document.getElementById('source-img').getBoundingClientRect();
+                const sx = img.width/r.width, sy = img.height/r.height;
+                const fP = pts.map(p => ({ x:(p.x-r.left)*sx, y:(p.y-r.top)*sy }));
                 const w = Math.max(Math.hypot(fP[1].x-fP[0].x, fP[1].y-fP[0].y), Math.hypot(fP[2].x-fP[3].x, fP[2].y-fP[3].y));
                 const h = Math.max(Math.hypot(fP[3].x-fP[0].x, fP[3].y-fP[0].y), Math.hypot(fP[2].x-fP[1].x, fP[2].y-fP[1].y));
-
-                let sM = cv.imread(img);
-                let dM = new cv.Mat();
-                let sP = cv.matFromArray(4, 1, cv.CV_32FC2, [fP[0].x, fP[0].y, fP[1].x, fP[1].y, fP[2].x, fP[2].y, fP[3].x, fP[3].y]);
-                let dP = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
-                let M = cv.getPerspectiveTransform(sP, dP);
+                
+                let sM = cv.imread(img), dM = new cv.Mat();
+                let sPts = cv.matFromArray(4,1,cv.CV_32FC2,[fP[0].x,fP[0].y,fP[1].x,fP[1].y,fP[2].x,fP[2].y,fP[3].x,fP[3].y]);
+                let dPts = cv.matFromArray(4,1,cv.CV_32FC2,[0,0,w,0,w,h,0,h]);
+                let M = cv.getPerspectiveTransform(sPts, dPts);
                 cv.warpPerspective(sM, dM, M, new cv.Size(w, h));
-                
-                canvas.width = w; canvas.height = h;
-                cv.imshow(canvas, dM);
-                pages.push({ data: canvas.toDataURL('image/jpeg', 0.8), w: w, h: h });
-                renderGallery();
-                
-                sM.delete(); dM.delete(); sP.delete(); dP.delete(); M.delete();
-                cropModal.style.display = 'none';
+                can.width = w; can.height = h;
+                cv.imshow(can, dM);
+                pages.push({ data: can.toDataURL('image/jpeg', 0.8), w: w, h: h });
+                refreshGallery();
+                sM.delete(); dM.delete(); sPts.delete(); dPts.delete(); M.delete();
+                closeModal();
             };
         }
 
-        function renderGallery() {
+        function refreshGallery() {
             gallery.innerHTML = '';
             pages.forEach((p, i) => {
-                const img = document.createElement('img');
-                img.src = p.data;
-                img.className = 'thumb';
-                img.onclick = () => openReview(i);
-                gallery.appendChild(img);
+                const div = document.createElement('div');
+                div.className = 'thumb-box';
+                div.innerHTML = `<img src="${p.data}" class="thumb"><span class="page-num">${i+1}</span>`;
+                div.onclick = () => { if(confirm("Xóa trang này?")) { pages.splice(i,1); refreshGallery(); } };
+                gallery.appendChild(div);
             });
             document.getElementById('count').innerText = pages.length;
         }
-
-        function openReview(idx) {
-            currentReviewIdx = idx;
-            document.getElementById('review-img').src = pages[idx].data;
-            document.getElementById('review-title').innerText = `Xem lại trang ${idx + 1}`;
-            reviewModal.style.display = 'flex';
-        }
-
-        function deleteCurrentPage() {
-            if (currentReviewIdx > -1) {
-                pages.splice(currentReviewIdx, 1);
-                renderGallery();
-                closeReview();
-            }
-        }
-
-        function closeReview() { reviewModal.style.display = 'none'; }
 
         function exportPDF() {
             if (pages.length === 0) return alert("Chưa có trang nào!");
@@ -221,7 +186,7 @@
                 if (fh > 277) { fh = 277; fw = fh * ratio; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("Scanner_HUET_Pro.pdf");
+            doc.save("HUET_Scan_Mobile.pdf");
         }
 
         startCamera();
