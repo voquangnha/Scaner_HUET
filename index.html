@@ -7,35 +7,37 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #000; }
+        :root { --primary: #00e5ff; --bg: #000; --panel: #111; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: system-ui; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: -apple-system, system-ui, sans-serif; }
         
-        #camera-view { width: 100%; height: 70%; background: #000; position: relative; }
+        body { display: flex; flex-direction: column; }
+        
+        /* 1. Vùng Camera (60% chiều cao) */
+        #camera-view { height: 60%; width: 100%; position: relative; background: #000; overflow: hidden; border-bottom: 2px solid #333; }
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        #ui-panel { height: 30%; background: #111; display: flex; flex-direction: column; align-items: center; border-top: 1px solid #333; padding-bottom: env(safe-area-inset-bottom); }
-        #gallery { flex: 1; width: 100%; display: flex; overflow-x: auto; align-items: center; gap: 10px; padding: 0 15px; }
+        /* 2. Vùng Gallery và Nút (40% chiều cao - Chống Safari khuất nút) */
+        #ui-panel { flex: 1; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
+        #gallery { width: 100%; height: 80px; display: flex; overflow-x: auto; align-items: center; gap: 8px; padding: 0 15px; }
         .thumb { width: 50px; height: 65px; object-fit: cover; border: 1px solid #555; border-radius: 4px; }
-
-        .btn-row { width: 90%; display: flex; gap: 10px; margin-bottom: 15px; }
+        
+        .btn-row { width: 90%; display: flex; gap: 10px; margin-bottom: 5px; }
         .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; height: 50px; }
         .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1rem; }
         .btn-pdf { background: #ff5252; color: white; flex: 1.2; font-size: 0.8rem; }
 
         /* MODAL CROP - FIX TUYỆT ĐỐI */
         #crop-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
-        #crop-container { flex: 1; position: relative; width: 100%; display: flex; align-items: center; justify-content: center; }
-        #source-img { width: 100%; height: auto; display: block; }
+        #crop-container { flex: 1; position: relative; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 120px; }
+        #source-img { max-width: 95%; max-height: 95%; object-fit: contain; pointer-events: none; }
         
-        .handle { 
-            width: 60px; height: 60px; position: absolute; 
-            transform: translate(-50%, -50%); touch-action: none; 
-            display: flex; align-items: center; justify-content: center; z-index: 10;
-        }
+        /* Điểm kéo to hơn và dễ chạm hơn */
+        .handle { width: 50px; height: 50px; position: absolute; transform: translate(-50%, -50%); touch-action: none; z-index: 10001; display: flex; align-items: center; justify-content: center; }
         .handle::after { content: ''; width: 30px; height: 30px; background: rgba(0,229,255,0.4); border: 3px solid #fff; border-radius: 50%; }
 
-        .modal-btns { height: 100px; background: #111; display: flex; gap: 15px; padding: 20px; align-items: center; border-top: 1px solid #333; }
+        /* Modal footer cố định ở trên thanh Safari */
+        .modal-btns { position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: #111; display: flex; gap: 15px; padding: 20px; align-items: center; border-top: 1px solid #333; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
     </style>
 </head>
 <body>
@@ -49,13 +51,13 @@
         <div id="status" style="color:var(--primary); font-size: 0.7rem; margin: 5px 0;">ĐANG TẢI...</div>
         <div class="btn-row">
             <button class="btn" style="background:#333; color:#fff; width:50px;" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TÀI LIỆU</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TRANG MỚI</button>
             <button class="btn btn-pdf" onclick="exportPDF()">XUẤT PDF (<span id="count">0</span>)</button>
         </div>
     </div>
 
     <div id="crop-modal">
-        <div style="padding: 15px; text-align: center; color: var(--primary); font-weight: bold;">KÉO 4 GÓC VÀO TỜ GIẤY</div>
+        <div style="padding: 15px; text-align: center; color: var(--primary); font-weight: bold; font-size: 0.9rem;">CĂN CHỈNH 4 GÓC VÀO TỜ GIẤY</div>
         <div id="crop-container">
             <img id="source-img" src="">
             <div id="p0" class="handle"></div><div id="p1" class="handle"></div>
@@ -70,27 +72,33 @@
         </div>
     </div>
 
+    <canvas id="hid-can" style="display:none;"></canvas>
+
     <script>
         const video = document.getElementById('webcam');
         const btnSnap = document.getElementById('btn-snap');
+        const gallery = document.getElementById('gallery');
         const handles = [document.getElementById('p0'), document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
         let pages = [], rawBase64 = null, pts = [];
 
         function onCvReady() {
             btnSnap.innerText = "📸 CHỤP TRANG MỚI";
             btnSnap.disabled = false;
-            document.getElementById('status').innerText = "SẴN SÀNG";
+            document.getElementById('status').innerText = "SẴN SÀNG QUÉT";
         }
 
         async function startCamera() {
-            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
-            video.srcObject = s;
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
+                video.srcObject = s;
+            } catch (e) { alert("Lỗi camera!"); }
         }
 
         btnSnap.onclick = () => {
-            const can = document.createElement('canvas');
+            const can = document.getElementById('hid-can');
+            const ctx = can.getContext('2d');
             can.width = video.videoWidth; can.height = video.videoHeight;
-            can.getContext('2d').drawImage(video, 0, 0);
+            ctx.drawImage(video, 0, 0);
             rawBase64 = can.toDataURL('image/jpeg', 0.9);
             
             const sImg = document.getElementById('source-img');
@@ -99,14 +107,16 @@
             
             sImg.onload = () => {
                 const r = sImg.getBoundingClientRect();
-                pts = [{x:r.left+40,y:r.top+40},{x:r.right-40,y:r.top+40},{x:r.right-40,y:r.bottom-40},{x:r.left+40,y:r.bottom-40}];
+                const pad = 40;
+                pts = [{x:r.left+pad,y:r.top+pad},{x:r.right-pad,y:r.top+pad},{x:r.right-pad,y:r.bottom-pad},{x:r.left+pad,y:r.bottom-pad}];
                 updateUI();
             };
         };
 
+        // KÉO THẢ MƯỢT MÀ, KHÓA CUỘN SAFARI
         handles.forEach((h, i) => {
             const move = (e) => {
-                e.preventDefault();
+                e.preventDefault(); e.stopPropagation();
                 const t = e.touches[0];
                 pts[i] = { x: t.clientX, y: t.clientY };
                 updateUI();
@@ -127,6 +137,7 @@
         function closeCrop() { document.getElementById('crop-modal').style.display = 'none'; }
 
         function doWarp() {
+            document.getElementById('status').innerText = "Đang cắt xén chính xác...";
             const img = new Image();
             img.src = rawBase64;
             img.onload = () => {
@@ -134,11 +145,11 @@
                 const sx = img.naturalWidth / r.width;
                 const sy = img.naturalHeight / r.height;
                 
-                // Tọa độ chuẩn xác trên ảnh gốc
+                // Tọa độ CHUẨN XÁC trên ảnh gốc (được quy đổi từ màn hình)
                 const fP = pts.map(p => ({ x: (p.x - r.left) * sx, y: (p.y - r.top) * sy }));
 
-                const w = Math.hypot(fP[1].x-fP[0].x, fP[1].y-fP[0].y);
-                const h = Math.hypot(fP[3].x-fP[0].x, fP[3].y-fP[0].y);
+                const w = Math.max(Math.hypot(fP[1].x-fP[0].x, fP[1].y-fP[0].y), Math.hypot(fP[2].x-fP[3].x, fP[2].y-fP[3].y));
+                const h = Math.max(Math.hypot(fP[3].x-fP[0].x, fP[3].y-fP[0].y), Math.hypot(fP[2].x-fP[1].x, fP[2].y-fP[1].y));
 
                 let sM = cv.imread(img), dM = new cv.Mat();
                 let sPts = cv.matFromArray(4, 1, cv.CV_32FC2, [fP[0].x, fP[0].y, fP[1].x, fP[1].y, fP[2].x, fP[2].y, fP[3].x, fP[3].y]);
@@ -153,17 +164,17 @@
                 renderGallery();
                 sM.delete(); dM.delete(); sPts.delete(); dPts.delete(); M.delete();
                 closeCrop();
+                document.getElementById('status').innerText = "Đã cắt xén chuẩn xác!";
             };
         }
 
         function renderGallery() {
-            const gal = document.getElementById('gallery');
-            gal.innerHTML = '';
+            gallery.innerHTML = '';
             pages.forEach((p, i) => {
                 const im = document.createElement('img');
                 im.src = p.data; im.className = 'thumb';
                 im.onclick = () => { if(confirm("Xóa trang?")) { pages.splice(i,1); renderGallery(); } };
-                gal.appendChild(im);
+                gallery.appendChild(im);
             });
             document.getElementById('count').innerText = pages.length;
         }
@@ -178,7 +189,7 @@
                 if (fh > 277) { fh = 277; fw = fh * r; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("HUET_Scan_Final.pdf");
+            doc.save("Scan_HUET_v4.9.pdf");
         }
 
         startCamera();
