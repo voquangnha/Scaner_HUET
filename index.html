@@ -2,189 +2,245 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HUET SCANNER v6.5 - PRECISION CROP</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hành Trình Tâm Trí - Nguyễn Quang Ngọc Linh</title>
     <style>
-        :root { --primary: #00e5ff; --bg: #000; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: #000; font-family: -apple-system, system-ui, sans-serif; }
-        body { display: flex; flex-direction: column; }
-        
-        #camera-view { height: 65dvh; width: 100%; position: relative; border-bottom: 2px solid #333; }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        :root {
+            --primary: #4834d4; --accent: #f9fca2; --success: #2ecc71; --error: #e74c3c; --dark: #130f40;
+        }
 
-        #ui-panel { flex: 1; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: env(safe-area-inset-bottom); }
-        #gallery { width: 100%; height: 70px; display: flex; overflow-x: auto; align-items: center; gap: 10px; padding: 0 15px; }
-        .thumb { width: 45px; height: 60px; object-fit: cover; border-radius: 4px; border: 1.5px solid #555; }
-        
-        .btn-row { width: 90%; display: flex; gap: 10px; margin-top: 10px; }
-        .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; height: 50px; font-size: 0.9rem; }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; }
-        .btn-pdf { background: #ff5252; color: white; flex: 1; }
+        body {
+            margin: 0; font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--dark); color: #fff;
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden;
+        }
 
-        /* MODAL CROP - GIAO DIỆN CHỈNH TAY SIÊU CHUẨN */
-        #crop-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
-        #crop-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        #source-img { max-width: 95%; max-height: 85%; object-fit: contain; pointer-events: none; }
-        
-        /* Điểm kéo */
-        .handle { width: 44px; height: 44px; position: absolute; transform: translate(-50%, -50%); touch-action: none; z-index: 100; display: flex; align-items: center; justify-content: center; }
-        .handle::after { content: ''; width: 28px; height: 28px; background: rgba(0,229,255,0.4); border: 2px solid #fff; border-radius: 50%; }
+        #game-box {
+            width: 100%; max-width: 414px; height: 95vh;
+            background: #fff; color: var(--dark);
+            position: relative; border-radius: 20px;
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+        }
 
-        .modal-footer { height: 100px; background: #111; display: flex; gap: 15px; padding: 20px; align-items: center; border-top: 1px solid #333; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+        /* KHU VỰC BẢN QUYỀN TRANG TRỌNG */
+        .designer-credit {
+            background: #f1f5f9;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: var(--primary);
+            border-bottom: 1px solid #ddd;
+        }
+
+        .header { height: 60px; background: var(--primary); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+        
+        .timer-circle {
+            position: absolute; top: 85px; left: 50%; transform: translateX(-50%);
+            width: 45px; height: 45px; background: #fff; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            border: 3px solid var(--primary); font-size: 1.1rem; font-weight: bold; z-index: 10;
+        }
+
+        .progress-container { padding: 45px 20px 10px; }
+        .bar-bg { height: 6px; background: #eee; border-radius: 3px; }
+        #bar-fill { height: 100%; width: 0%; background: var(--success); transition: 0.3s; }
+
+        #q-area { padding: 20px; flex-grow: 1; text-align: center; overflow-y: auto; }
+        
+        .option-btn {
+            width: 100%; padding: 14px; margin-bottom: 10px;
+            border: 2px solid #f0f0f0; border-radius: 12px;
+            background: #fff; font-size: 0.95rem; cursor: pointer; transition: 0.2s;
+            text-align: left; font-weight: 500; outline: none;
+        }
+
+        .correct { background: var(--success) !important; color: #fff; border-color: var(--success); transform: scale(1.02); }
+        .wrong { background: var(--error) !important; color: #fff; border-color: var(--error); }
+
+        .shake { animation: shake 0.4s; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        /* MÀN HÌNH OVERLAY */
+        #overlay, #result-overlay {
+            position: absolute; inset: 0; background: var(--primary);
+            z-index: 100; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; padding: 25px;
+        }
+
+        .btn-start {
+            padding: 15px 45px; background: var(--accent); color: var(--dark);
+            border: none; border-radius: 30px; font-weight: bold; font-size: 1.1rem;
+            cursor: pointer; box-shadow: 0 4px 0 #d4d700; transition: 0.2s;
+        }
+
+        #best-score-display { font-size: 1.8rem; color: var(--accent); margin: 5px 0; font-weight: bold; }
+        
+        .author-box {
+            margin-top: 20px;
+            padding: 10px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+            font-size: 11px;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
 
-    <div id="camera-view">
-        <video id="webcam" autoplay playsinline muted></video>
-        <div style="position:absolute; inset:15%; border:1px dashed rgba(0,229,255,0.3); pointer-events:none;"></div>
-    </div>
+<div id="game-box">
+    <div class="designer-credit">Nội dung bởi: Nguyễn Quang Ngọc Linh</div>
 
-    <div id="ui-panel">
-        <div id="gallery"></div>
-        <div id="status" style="color:var(--primary); font-size: 0.7rem; font-weight: bold; margin-bottom: 5px;">SẴN SÀNG QUÉT</div>
-        <div class="btn-row">
-            <button class="btn" style="background:#333; color:#fff; width:50px;" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP TRANG MỚI</button>
-            <button class="btn btn-pdf" onclick="exportPDF()">PDF (<span id="count">0</span>)</button>
+    <div id="overlay">
+        <h1 style="color:var(--accent); font-size: 1.8rem; margin-bottom: 5px;">HÀNH TRÌNH TÂM TRÍ</h1>
+        <p style="color:#fff; font-size: 0.9rem;">Hệ thống trắc nghiệm Tâm lý học Lâm sàng</p>
+        
+        <div style="margin: 20px 0; border: 1px solid rgba(255,255,255,0.3); padding: 15px; border-radius: 15px; width: 80%;">
+            <span style="color:#ddd; font-size: 0.8rem;">KỶ LỤC TRÊN THIẾT BỊ NÀY</span>
+            <div id="best-score-display">0</div>
+        </div>
+
+        <button class="btn-start" onclick="initGame()">BẮT ĐẦU NGAY</button>
+
+        <div class="author-box">
+            © 2026 Bản quyền nội dung thuộc về:<br>
+            <strong style="color:#fff; font-size: 14px;">Nguyễn Quang Ngọc Linh</strong>
         </div>
     </div>
 
-    <div id="crop-modal">
-        <div style="padding: 10px; text-align: center; color: var(--primary); font-weight: bold; font-size: 0.85rem;">KÉO 4 GÓC XANH VÀO MÉP GIẤY</div>
-        <div id="crop-container">
-            <img id="source-img" src="">
-            <div id="p0" class="handle"></div><div id="p1" class="handle"></div>
-            <div id="p2" class="handle"></div><div id="p3" class="handle"></div>
-            <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
-                <polygon id="poly" points="" style="fill:rgba(0,229,255,0.2); stroke:#fff; stroke-width:2;" />
-            </svg>
+    <div id="result-overlay" style="display:none;">
+        <h2 style="color:#fff">HOÀN THÀNH THỬ THÁCH</h2>
+        <div id="final-score-val" style="font-size: 4rem; color: var(--accent); font-weight: bold;">0</div>
+        <p id="result-text" style="color:#fff; margin-bottom: 20px;"></p>
+        
+        <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; margin-bottom: 20px;">
+            <span style="color: #ccc; font-size: 11px;">Người thiết kế bộ trắc nghiệm:</span><br>
+            <strong style="color: var(--accent);">Nguyễn Quang Ngọc Linh</strong>
         </div>
-        <div class="modal-footer">
-            <button class="btn" style="background:#444; color:#fff; flex:1;" onclick="closeCrop()">HỦY</button>
-            <button class="btn" style="background:var(--primary); color:#000; flex:2;" onclick="doWarp()">✅ XÁC NHẬN CẮT</button>
-        </div>
+
+        <button class="btn-start" onclick="location.reload()">CHƠI LẠI</button>
     </div>
 
-    <canvas id="hid-can" style="display:none;"></canvas>
+    <div class="header">BÀI KIỂM TRA CHUYÊN SÂU</div>
+    <div class="timer-circle" id="timer">15</div>
 
-    <script>
-        const video = document.getElementById('webcam');
-        const btnSnap = document.getElementById('btn-snap');
-        const handles = [document.getElementById('p0'), document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
-        let pages = [], rawData = null, pts = [];
+    <div class="progress-container">
+        <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:5px; color:#666; font-weight: bold;">
+            <span id="q-idx">CÂU 1/10</span>
+            <span id="score-now">ĐIỂM: 0</span>
+        </div>
+        <div class="bar-bg"><div id="bar-fill"></div></div>
+    </div>
 
-        function onCvReady() { btnSnap.disabled = false; }
+    <div id="q-area">
+        <h2 id="q-text" style="font-size: 1.1rem; margin-bottom: 25px; line-height: 1.4;">Đang chuẩn bị...</h2>
+        <div id="options-grid"></div>
+    </div>
+</div>
 
-        async function startCamera() {
-            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
-            video.srcObject = s;
-        }
+<script>
+    // Danh sách câu hỏi chuyên sâu
+    const questions = [
+        { q: "Triệu chứng 'Anhedonia' trong PHQ-9 có nghĩa là gì?", a: ["Mất ngủ", "Mất hứng thú/niềm vui", "Lo lắng tương lai", "Mệt mỏi cơ thể"], c: 1 },
+        { q: "Hệ số tương quan r = -0.9 cho thấy mối quan hệ:", a: ["Thuận mạnh", "Nghịch rất mạnh", "Không liên quan", "Nghịch yếu"], c: 1 },
+        { q: "Bộ phận nào của não bộ liên quan đến phản ứng 'Chiến đấu hoặc Bỏ chạy'?", a: ["Hồi hải mã", "Tiểu não", "Hạch hạnh nhân", "Thùy trán"], c: 2 },
+        { q: "Cơ chế của thuốc SSRI là gì?", a: ["Giảm Dopamine", "Tăng tái hấp thu Serotonin", "Ngăn chặn tái hấp thu Serotonin", "Tăng Adrenaline"], c: 2 },
+        { q: "Hormone Cortisol tăng cao kéo dài sẽ gây hại cho bộ phận nào?", a: ["Hạch hạnh nhân", "Tuyến yên", "Hồi hải mã", "Tiểu não"], c: 2 },
+        { q: "CBT tập trung thay đổi điều gì?", a: ["Quá khứ", "Suy nghĩ tự động tiêu cực", "Cân nặng", "Ngôn ngữ"], c: 1 },
+        { q: "Tính dẻo thần kinh (Neuroplasticity) là khả năng gì?", a: ["Ngừng phát triển", "Tạo kết nối neuron mới", "Làm chết neuron", "Lưu trữ rác"], c: 1 },
+        { q: "GAD-7 dùng để tầm soát tình trạng nào?", a: ["Trầm cảm", "Lo âu lan tỏa", "Lưỡng cực", "Mất trí nhớ"], c: 1 },
+        { q: "Hồi quy tuyến tính trong thực hành điện trở giúp:", a: ["Tăng dòng điện", "Giảm sai số ngẫu nhiên", "Đo áp", "Phá hủy máy"], c: 1 },
+        { q: "Mục tiêu của 'Chánh niệm' là gì?", a: ["Xóa ký ức", "Chấp nhận thực tại", "Vô cảm", "Ngủ ngon"], c: 1 }
+    ];
 
-        btnSnap.onclick = () => {
-            const can = document.getElementById('hid-can');
-            const ctx = can.getContext('2d');
-            can.width = video.videoWidth; can.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-            rawData = can.toDataURL('image/jpeg', 0.95);
-            
-            const sImg = document.getElementById('source-img');
-            sImg.src = rawData;
-            document.getElementById('crop-modal').style.display = 'flex';
-            
-            sImg.onload = () => {
-                const r = sImg.getBoundingClientRect();
-                const pad = 40;
-                pts = [{x:r.left+pad,y:r.top+pad},{x:r.right-pad,y:r.top+pad},{x:r.right-pad,y:r.bottom-pad},{x:r.left+pad,y:r.bottom-pad}];
-                updateUI();
-            };
-        };
+    let current = 0, score = 0, timeLeft = 15, timer, audioCtx;
 
-        handles.forEach((h, i) => {
-            const move = (e) => {
-                e.preventDefault(); e.stopPropagation();
-                const t = e.touches[0];
-                pts[i] = { x: t.clientX, y: t.clientY };
-                updateUI();
-            };
-            h.addEventListener('touchstart', move, {passive:false});
-            h.addEventListener('touchmove', move, {passive:false});
+    window.onload = () => {
+        const best = localStorage.getItem('dan_high_score') || 0;
+        document.getElementById('best-score-display').innerText = best;
+    };
+
+    function playSnd(f, t, d) {
+        try {
+            if (!audioCtx) audioCtx = new AudioContext();
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        } catch(e) {}
+    }
+
+    function initGame() {
+        document.getElementById('overlay').style.display = 'none';
+        loadQ();
+    }
+
+    function loadQ() {
+        if(current >= questions.length) return endG();
+        timeLeft = 15;
+        document.getElementById('timer').innerText = timeLeft;
+        document.getElementById('timer').style.borderColor = "var(--primary)";
+        const q = questions[current];
+        document.getElementById('q-text').innerText = q.q;
+        document.getElementById('q-idx').innerText = `CÂU ${current+1}/${questions.length}`;
+        document.getElementById('bar-fill').style.width = (current / questions.length * 100) + "%";
+        const grid = document.getElementById('options-grid');
+        grid.innerHTML = "";
+        q.a.forEach((opt, i) => {
+            const b = document.createElement('button');
+            b.className = 'option-btn';
+            b.innerText = opt;
+            b.onclick = () => check(i, b);
+            grid.appendChild(b);
         });
+        clearInterval(timer);
+        timer = setInterval(() => {
+            timeLeft--;
+            document.getElementById('timer').innerText = timeLeft;
+            if(timeLeft <= 5) document.getElementById('timer').style.borderColor = "red";
+            if(timeLeft <= 0) { clearInterval(timer); check(-1, null); }
+        }, 1000);
+    }
 
-        function updateUI() {
-            let s = "";
-            handles.forEach((h, i) => {
-                h.style.left = pts[i].x + 'px'; h.style.top = pts[i].y + 'px';
-                s += `${pts[i].x},${pts[i].y} `;
-            });
-            document.getElementById('poly').setAttribute("points", s);
+    function check(idx, btn) {
+        clearInterval(timer);
+        const correct = questions[current].c;
+        const nodes = document.querySelectorAll('.option-node');
+        if(idx === correct) {
+            playSnd(523, 'sine', 0.1); setTimeout(() => playSnd(659, 'sine', 0.2), 100);
+            btn.classList.add('correct');
+            score += (10 + timeLeft);
+            document.getElementById('score-now').innerText = `ĐIỂM: ${score}`;
+        } else {
+            playSnd(150, 'sawtooth', 0.3);
+            document.getElementById('game-box').classList.add('shake');
+            setTimeout(() => document.getElementById('game-box').classList.remove('shake'), 400);
+            if(btn) btn.classList.add('wrong');
+            document.querySelectorAll('.option-btn')[correct].classList.add('correct');
         }
+        setTimeout(() => { current++; loadQ(); }, 1300);
+    }
 
-        function closeCrop() { document.getElementById('crop-modal').style.display = 'none'; }
-
-        function doWarp() {
-            const img = new Image();
-            img.src = rawData;
-            img.onload = () => {
-                const sImg = document.getElementById('source-img');
-                const r = sImg.getBoundingClientRect();
-                const sx = img.naturalWidth / r.width;
-                const sy = img.naturalHeight / r.height;
-                
-                const fP = pts.map(p => ({ x: (p.x - r.left) * sx, y: (p.y - r.top) * sy }));
-
-                const w = Math.max(Math.hypot(fP[1].x-fP[0].x, fP[1].y-fP[0].y), Math.hypot(fP[2].x-fP[3].x, fP[2].y-fP[3].y));
-                const h = Math.max(Math.hypot(fP[3].x-fP[0].x, fP[3].y-fP[0].y), Math.hypot(fP[2].x-fP[1].x, fP[2].y-fP[1].y));
-
-                let sM = cv.imread(img), dM = new cv.Mat();
-                let sPts = cv.matFromArray(4, 1, cv.CV_32FC2, [fP[0].x, fP[0].y, fP[1].x, fP[1].y, fP[2].x, fP[2].y, fP[3].x, fP[3].y]);
-                let dPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
-                let M = cv.getPerspectiveTransform(sPts, dPts);
-                cv.warpPerspective(sM, dM, M, new cv.Size(w, h));
-                
-                // TỰ ĐỘNG XOAY THẲNG NẾU NGANG
-                let finalM = new cv.Mat();
-                if (w > h) { cv.rotate(dM, finalM, cv.ROTATE_90_CLOCKWISE); [w,h] = [h,w]; } else { dM.copyTo(finalM); }
-
-                const outCan = document.createElement('canvas');
-                cv.imshow(outCan, finalM);
-                pages.push({ data: outCan.toDataURL('image/jpeg', 0.85), w: w, h: h });
-                
-                renderGallery();
-                sM.delete(); dM.delete(); finalM.delete(); sPts.delete(); dPts.delete(); M.delete();
-                closeCrop();
-            };
+    function endG() {
+        document.getElementById('result-overlay').style.display = 'flex';
+        document.getElementById('final-score-val').innerText = score;
+        const best = localStorage.getItem('dan_high_score') || 0;
+        if(score > best) {
+            localStorage.setItem('dan_high_score', score);
+            document.getElementById('result-text').innerHTML = "🌟 KỶ LỤC MỚI CỦA BẠN! 🌟";
+        } else {
+            document.getElementById('result-text').innerText = "Cảm ơn bạn đã tham gia bài kiểm tra!";
         }
-
-        function renderGallery() {
-            const gal = document.getElementById('gallery');
-            gal.innerHTML = '';
-            pages.forEach((p, i) => {
-                const im = document.createElement('img');
-                im.src = p.data; im.className = 'thumb';
-                im.onclick = () => { if(confirm("Xóa trang này?")) { pages.splice(i,1); renderGallery(); } };
-                gal.appendChild(im);
-            });
-            document.getElementById('count').innerText = pages.length;
-        }
-
-        function exportPDF() {
-            if (pages.length === 0) return alert("Chưa có trang nào!");
-            const doc = new window.jspdf.jsPDF('p', 'mm', 'a4');
-            pages.forEach((p, i) => {
-                if (i > 0) doc.addPage();
-                const r = p.w / p.h;
-                let fw = 190, fh = 190 / r;
-                if (fh > 277) { fh = 277; fw = fh * r; }
-                doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
-            });
-            doc.save("HUET_Scan_Precision.pdf");
-        }
-
-        startCamera();
-    </script>
+    }
+</script>
 </body>
 </html>
+
