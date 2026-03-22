@@ -3,46 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HUET SCANNER v5.5 - AI POWERED</title>
+    <title>HUET SCANNER v5.6 - SAFARI FIXED</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #0b0b0b; }
+        :root { --primary: #00e5ff; --bg: #000; --panel: #111; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; height: -webkit-fill-available; overflow: hidden; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: white; }
         
-        #camera-view { height: 60%; width: 100%; position: relative; background: #000; border-bottom: 2px solid #333; }
+        /* FIX LỖI SAFARI: Sử dụng dvh (Dynamic Viewport Height) */
+        html, body { 
+            margin: 0; padding: 0; width: 100%; 
+            height: 100vh; height: 100dvh; 
+            overflow: hidden; background: #000; 
+            font-family: -apple-system, system-ui, sans-serif; 
+        }
+        
+        body { display: flex; flex-direction: column; }
+        
+        /* 1. Vùng Camera (Thu nhỏ lại để nhường chỗ cho nút) */
+        #camera-view { 
+            height: 55dvh; width: 100%; position: relative; 
+            background: #000; overflow: hidden; border-bottom: 2px solid #333; 
+        }
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        #ui-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding: 10px; background: linear-gradient(180deg, #111 0%, #000 100%); }
-        #gallery { width: 100%; height: 80px; display: flex; overflow-x: auto; align-items: center; gap: 10px; padding: 0 15px; }
-        .thumb-box { position: relative; height: 70px; aspect-ratio: 3/4; flex-shrink: 0; }
-        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #444; }
+        /* 2. Vùng Bảng điều khiển (Luôn nằm trên thanh Safari) */
+        #ui-panel { 
+            flex: 1; background: var(--bg); display: flex; 
+            flex-direction: column; align-items: center; justify-content: space-between; 
+            padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+        }
         
-        .btn-row { width: 92%; display: flex; gap: 10px; }
-        .btn { border: none; border-radius: 14px; font-weight: bold; cursor: pointer; height: 55px; font-size: 0.95rem; transition: 0.2s; }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; box-shadow: 0 0 20px rgba(0,229,255,0.2); }
-        .btn-ai { background: #8e24aa; color: white; flex: 1; font-size: 0.8rem; } /* Nút Gemini AI */
-        .btn-pdf { background: #ff5252; color: white; flex: 1; }
+        #gallery { width: 100%; height: 75px; display: flex; overflow-x: auto; align-items: center; gap: 8px; padding: 0 15px; }
+        .thumb-box { position: relative; height: 65px; aspect-ratio: 3/4; flex-shrink: 0; }
+        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid #444; }
+        .page-num { position: absolute; top: -5px; right: -5px; background: var(--primary); color: #000; font-size: 0.6rem; width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; }
         
-        #status { color: var(--primary); font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; }
+        .btn-row { width: 92%; display: flex; gap: 10px; margin-bottom: 5px; }
+        .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; height: 48px; display: flex; align-items: center; justify-content: center; }
+        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 0.95rem; }
+        .btn-pdf { background: #ff5252; color: white; flex: 1.2; font-size: 0.8rem; }
+        .btn-reset { background: #333; color: white; width: 48px; font-size: 1.1rem; }
+
+        /* MODAL CROP: Sửa lỗi tràn màn hình */
+        .modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
+        #crop-container { flex: 1; position: relative; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #source-img { max-width: 90%; max-height: 80%; object-fit: contain; }
+        
+        .modal-btns { 
+            height: 100px; background: #111; display: flex; gap: 12px; 
+            padding: 15px; align-items: center; border-top: 1px solid #333; 
+            padding-bottom: calc(15px + env(safe-area-inset-bottom)); 
+        }
     </style>
 </head>
 <body>
 
     <div id="camera-view">
         <video id="webcam" autoplay playsinline muted></video>
-        <div style="position:absolute; inset:12%; border:1px dashed rgba(0,229,255,0.3); pointer-events:none;"></div>
+        <div style="position:absolute; inset:15%; border:1px dashed rgba(0,229,255,0.3); pointer-events:none;"></div>
     </div>
 
     <div id="ui-panel">
-        <div id="status">HỆ THỐNG AI ĐÃ SẴN SÀNG</div>
         <div id="gallery"></div>
+        <div id="status" style="color:var(--primary); font-size: 0.7rem; font-weight: bold; margin: 2px 0;">SẴN SÀNG QUÉT</div>
         <div class="btn-row">
-            <button class="btn" style="background:#222; color:#fff; width:55px;" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP & XOAY DỌC</button>
-            <button class="btn btn-ai" onclick="askGemini()">✨ HỎI AI</button>
-            <button class="btn btn-pdf" onclick="exportPDF()">XUẤT PDF (<span id="count">0</span>)</button>
+            <button class="btn btn-reset" onclick="location.reload()">🔄</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP & TỰ CẮT</button>
+            <button class="btn btn-pdf" onclick="exportPDF()">PDF (<span id="count">0</span>)</button>
+        </div>
+    </div>
+
+    <div id="crop-modal" class="modal">
+        <div id="crop-container">
+            <img id="source-img" src="">
+        </div>
+        <div class="modal-btns">
+            <button class="btn" style="background:#444; color:#fff; flex:1;" onclick="closeModal()">HỦY</button>
+            <button class="btn" style="background:#4caf50; color:#fff; flex:2;" onclick="doCrop()">XÁC NHẬN</button>
         </div>
     </div>
 
@@ -57,16 +95,20 @@
 
         function onCvReady() {
             btnSnap.disabled = false;
-            status.innerText = "SẴN SÀNG QUÉT TÀI LIỆU";
+            status.innerText = "HỆ THỐNG ĐÃ SẴN SÀNG";
         }
 
         async function startCamera() {
-            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
-            video.srcObject = s;
+            try {
+                const s = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: 1280, height: 720 } 
+                });
+                video.srcObject = s;
+            } catch (e) { status.innerText = "LỖI CAMERA!"; }
         }
 
         btnSnap.onclick = () => {
-            status.innerText = "ĐANG XỬ LÝ & XOAY DỌC...";
+            status.innerText = "ĐANG TỰ ĐỘNG CẮT & XOAY...";
             const can = document.getElementById('hid-can');
             const ctx = can.getContext('2d');
             can.width = video.videoWidth; can.height = video.videoHeight;
@@ -108,45 +150,33 @@
                         let w = Math.max(Math.hypot(tr.x-tl.x, tr.y-tl.y), Math.hypot(br.x-bl.x, br.y-bl.y));
                         let h = Math.max(Math.hypot(bl.x-tl.x, bl.y-tl.y), Math.hypot(br.x-tr.x, br.y-tr.y));
 
-                        let srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                        let dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
-                        let M = cv.getPerspectiveTransform(srcPts, dstPts);
+                        let sPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                        let dPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
+                        let M = cv.getPerspectiveTransform(sPts, dPts);
                         let warp = new cv.Mat();
                         cv.warpPerspective(src, warp, M, new cv.Size(w, h));
 
-                        // TÍNH NĂNG TỰ ĐỘNG XOAY DỌC
+                        // TỰ ĐỘNG XOAY DỌC NẾU CHỤP NGANG
                         let finalMat = new cv.Mat();
                         if (w > h) {
                             cv.rotate(warp, finalMat, cv.ROTATE_90_CLOCKWISE);
-                            [w, h] = [h, w]; // Đảo chiều sau khi xoay
-                        } else {
-                            warp.copyTo(finalMat);
-                        }
+                            [w, h] = [h, w];
+                        } else { warp.copyTo(finalMat); }
 
                         const outCan = document.createElement('canvas');
                         cv.imshow(outCan, finalMat);
                         pages.push({ data: outCan.toDataURL('image/jpeg', 0.8), w: w, h: h });
                         
-                        warp.delete(); finalMat.delete(); srcPts.delete(); dstPts.delete(); M.delete();
+                        warp.delete(); finalMat.delete(); sPts.delete(); dPts.delete(); M.delete();
                     } else {
                         pages.push({ data: can.toDataURL('image/jpeg', 0.8), w: can.width, h: can.height });
                     }
                     renderGallery();
                     src.delete(); dst.delete(); contours.delete(); hierarchy.delete(); poly.delete();
-                    status.innerText = "ĐÃ LƯU & XOAY THẲNG!";
-                } catch (e) { status.innerText = "LỖI XỬ LÝ ẢNH"; }
+                    status.innerText = "ĐÃ LƯU TRANG " + pages.length;
+                } catch (e) { status.innerText = "LỖI XỬ LÝ"; }
             }, 300);
         };
-
-        // HÀM KẾT NỐI GEMINI API
-        async function askGemini() {
-            if (pages.length === 0) return alert("Hãy scan một trang bài tập trước!");
-            const apiKey = "DÁN_API_KEY_CỦA_THẦY_VÀO_ĐÂY"; // Thầy Nhã lấy key tại aistudio.google.com
-            status.innerText = "GEMINI ĐANG PHÂN TÍCH BÀI LÀM...";
-            
-            // Ở đây Thầy Nhã có thể viết thêm code gọi API gửi ảnh cuối cùng cho Gemini
-            alert("Tính năng AI: Gửi trang số " + pages.length + " tới Gemini để chấm bài.");
-        }
 
         function renderGallery() {
             gallery.innerHTML = '';
@@ -154,6 +184,7 @@
                 const div = document.createElement('div');
                 div.className = 'thumb-box';
                 div.innerHTML = `<img src="${p.data}" class="thumb"><span class="page-num">${i+1}</span>`;
+                div.onclick = () => { if(confirm("Xóa trang này?")) { pages.splice(i,1); renderGallery(); } };
                 gallery.appendChild(div);
             });
             document.getElementById('count').innerText = pages.length;
@@ -169,7 +200,7 @@
                 if (fh > 277) { fh = 277; fw = fh * r; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("HUET_AI_Scan.pdf");
+            doc.save("Scan_HUET_v5.6.pdf");
         }
 
         startCamera();
