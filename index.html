@@ -3,88 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HUET SCANNER v5.6 - SAFARI FIXED</title>
+    <title>HUET SCANNER v6.0 - FINAL STANDARD FIX</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #000; --panel: #111; }
+        :root { --primary: #00e5ff; --bg: #0b0b0b; --panel: #1a1a1a; }
+        
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
-        /* FIX LỖI SAFARI: Sử dụng dvh (Dynamic Viewport Height) */
         html, body { 
             margin: 0; padding: 0; width: 100%; 
-            height: 100vh; height: 100dvh; 
+            height: 100dvh; /* dvh (Dynamic Viewport Height) fix cho Safari iPhone */
             overflow: hidden; background: #000; 
             font-family: -apple-system, system-ui, sans-serif; 
         }
         
         body { display: flex; flex-direction: column; }
         
-        /* 1. Vùng Camera (Thu nhỏ lại để nhường chỗ cho nút) */
-        #camera-view { 
-            height: 55dvh; width: 100%; position: relative; 
+        /* 1. KHUNG NGẮM CAMERA (55% dvh, ép tỉ lệ 3:4 dọc) */
+        #camera-section { 
+            width: 100%; height: 55dvh; position: relative; 
             background: #000; overflow: hidden; border-bottom: 2px solid #333; 
+            display: flex; justify-content: center; align-items: center;
         }
-        video { width: 100%; height: 100%; object-fit: cover; }
+        
+        #aspect-ratio-box {
+            height: 98%; /* Ngắm gần tràn viền */
+            aspect-ratio: 3 / 4; /* Ép tỉ lệ chuẩn của tờ giấy dọc */
+            position: relative;
+            overflow: hidden;
+            border-radius: 6px;
+        }
+        
+        video { 
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover; /* Tràn viền trong khung 3:4 */
+        }
+        
+        /* Lưới ngắm xanh - Cần ngắm tờ giấy nằm trong lưới này */
+        .scan-grid {
+            position: absolute;
+            inset: 8%; /* Chừa lề */
+            border: 1.5px dashed var(--primary);
+            pointer-events: none;
+            opacity: 0.6;
+        }
 
-        /* 2. Vùng Bảng điều khiển (Luôn nằm trên thanh Safari) */
+        /* 2. BẢNG ĐIỀU KHIỂN (flex: 1 còn lại, luôn hiển thị trên Tab bar Safari) */
         #ui-panel { 
             flex: 1; background: var(--bg); display: flex; 
             flex-direction: column; align-items: center; justify-content: space-between; 
-            padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+            padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); /* dvh fix cho iPhone tai thỏ */
         }
         
-        #gallery { width: 100%; height: 75px; display: flex; overflow-x: auto; align-items: center; gap: 8px; padding: 0 15px; }
-        .thumb-box { position: relative; height: 65px; aspect-ratio: 3/4; flex-shrink: 0; }
-        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid #444; }
-        .page-num { position: absolute; top: -5px; right: -5px; background: var(--primary); color: #000; font-size: 0.6rem; width: 17px; height: 17px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; }
+        #gallery { width: 100%; height: 80px; display: flex; overflow-x: auto; align-items: center; gap: 8px; padding: 0 15px; }
+        .thumb-box { position: relative; height: 75px; aspect-ratio: 3/4; flex-shrink: 0; }
+        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1.5px solid #444; }
+        .page-num { position: absolute; top: -5px; right: -5px; background: var(--primary); color: #000; font-size: 0.65rem; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; }
         
         .btn-row { width: 92%; display: flex; gap: 10px; margin-bottom: 5px; }
-        .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; height: 48px; display: flex; align-items: center; justify-content: center; }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 0.95rem; }
-        .btn-pdf { background: #ff5252; color: white; flex: 1.2; font-size: 0.8rem; }
-        .btn-reset { background: #333; color: white; width: 48px; font-size: 1.1rem; }
-
-        /* MODAL CROP: Sửa lỗi tràn màn hình */
-        .modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
-        #crop-container { flex: 1; position: relative; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        #source-img { max-width: 90%; max-height: 80%; object-fit: contain; }
-        
-        .modal-btns { 
-            height: 100px; background: #111; display: flex; gap: 12px; 
-            padding: 15px; align-items: center; border-top: 1px solid #333; 
-            padding-bottom: calc(15px + env(safe-area-inset-bottom)); 
-        }
+        .btn { border: none; border-radius: 14px; font-weight: bold; cursor: pointer; height: 52px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .btn:active { opacity: 0.7; transform: scale(0.97); }
+        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1rem; box-shadow: 0 4px 15px rgba(0,229,255,0.2); }
+        .btn-pdf { background: #ff5252; color: white; flex: 1; font-size: 0.8rem; }
+        .btn-reset { background: #333; color: white; width: 52px; font-size: 1.1rem; }
     </style>
 </head>
 <body>
 
-    <div id="camera-view">
-        <video id="webcam" autoplay playsinline muted></video>
-        <div style="position:absolute; inset:15%; border:1px dashed rgba(0,229,255,0.3); pointer-events:none;"></div>
+    <div id="camera-section">
+        <div id="aspect-ratio-box">
+            <video id="webcam" autoplay playsinline muted></video>
+            <div class="scan-grid"></div>
+        </div>
     </div>
 
     <div id="ui-panel">
         <div id="gallery"></div>
-        <div id="status" style="color:var(--primary); font-size: 0.7rem; font-weight: bold; margin: 2px 0;">SẴN SÀNG QUÉT</div>
+        <div id="status" style="color:var(--primary); font-size: 0.7rem; font-weight: bold; margin: 3px 0; letter-spacing: 0.5px;">SẴN SÀNG QUÉT TÀI LIỆU</div>
         <div class="btn-row">
             <button class="btn btn-reset" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP & TỰ CẮT</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP TRANG</button>
             <button class="btn btn-pdf" onclick="exportPDF()">PDF (<span id="count">0</span>)</button>
         </div>
     </div>
 
-    <div id="crop-modal" class="modal">
-        <div id="crop-container">
-            <img id="source-img" src="">
-        </div>
-        <div class="modal-btns">
-            <button class="btn" style="background:#444; color:#fff; flex:1;" onclick="closeModal()">HỦY</button>
-            <button class="btn" style="background:#4caf50; color:#fff; flex:2;" onclick="doCrop()">XÁC NHẬN</button>
-        </div>
-    </div>
-
-    <canvas id="hid-can" style="display:none;"></canvas>
+    <canvas id="crop-can" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
@@ -108,7 +114,7 @@
         }
 
         btnSnap.onclick = () => {
-            status.innerText = "ĐANG TỰ ĐỘNG CẮT & XOAY...";
+            status.innerText = "ĐANG TỰ ĐỘNG CẮT XÉN CHUẨN...";
             const can = document.getElementById('hid-can');
             const ctx = can.getContext('2d');
             can.width = video.videoWidth; can.height = video.videoHeight;
@@ -150,31 +156,42 @@
                         let w = Math.max(Math.hypot(tr.x-tl.x, tr.y-tl.y), Math.hypot(br.x-bl.x, br.y-bl.y));
                         let h = Math.max(Math.hypot(bl.x-tl.x, bl.y-tl.y), Math.hypot(br.x-tr.x, br.y-tr.y));
 
-                        let sPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                        let dPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
-                        let M = cv.getPerspectiveTransform(sPts, dPts);
+                        let srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                        let dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
+                        let M = cv.getPerspectiveTransform(srcPts, dstPts);
                         let warp = new cv.Mat();
                         cv.warpPerspective(src, warp, M, new cv.Size(w, h));
 
-                        // TỰ ĐỘNG XOAY DỌC NẾU CHỤP NGANG
+                        // XOAY DỌC 100%: Ảnh ngang -> Dọc, Ảnh dọc -> Giữ nguyên
                         let finalMat = new cv.Mat();
                         if (w > h) {
                             cv.rotate(warp, finalMat, cv.ROTATE_90_CLOCKWISE);
-                            [w, h] = [h, w];
+                            [w, h] = [h, w]; // Đảo chiều sau khi xoay
                         } else { warp.copyTo(finalMat); }
 
                         const outCan = document.createElement('canvas');
                         cv.imshow(outCan, finalMat);
                         pages.push({ data: outCan.toDataURL('image/jpeg', 0.8), w: w, h: h });
                         
-                        warp.delete(); finalMat.delete(); sPts.delete(); dPts.delete(); M.delete();
+                        warp.delete(); finalMat.delete(); srcPts.delete(); dstPts.delete(); M.delete();
                     } else {
-                        pages.push({ data: can.toDataURL('image/jpeg', 0.8), w: can.width, h: can.height });
+                        status.innerText = "DÒ CẠNH LỖI, LƯU ẢNH GỐC (3:4)";
+                        
+                        // Nếu dò lỗi, ép ảnh camera về tỉ lệ 3:4 chuẩn thay vì ảnh méo
+                        const can34 = document.getElementById('hid-can'); // Tái sử dụng canvas
+                        const can34H = can34.height;
+                        const can34W = can34H * (3/4);
+                        const can34X = (can34.width - can34W) / 2;
+
+                        can34.width = can34W;
+                        ctx.drawImage(video, can34X, 0, can34W, can34H, 0, 0, can34W, can34H);
+                        
+                        pages.push({ data: can34.toDataURL('image/jpeg', 0.8), w: can34W, h: can34H });
                     }
                     renderGallery();
                     src.delete(); dst.delete(); contours.delete(); hierarchy.delete(); poly.delete();
                     status.innerText = "ĐÃ LƯU TRANG " + pages.length;
-                } catch (e) { status.innerText = "LỖI XỬ LÝ"; }
+                } catch (e) { status.innerText = "LỖI KỸ THUẬT"; }
             }, 300);
         };
 
@@ -200,7 +217,7 @@
                 if (fh > 277) { fh = 277; fw = fh * r; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("Scan_HUET_v5.6.pdf");
+            doc.save("Scan_HUET_v6.pdf");
         }
 
         startCamera();
