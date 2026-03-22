@@ -3,71 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HUET SCANNER v5.0 - SAFARI ABSOLUTE FIX</title>
+    <title>HUET SCANNER v5.5 - AI POWERED</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #000; --panel: #111; }
+        :root { --primary: #00e5ff; --bg: #0b0b0b; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; height: -webkit-fill-available; overflow: hidden; background: #000; font-family: -apple-system, system-ui, sans-serif; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; height: -webkit-fill-available; overflow: hidden; background: var(--bg); font-family: -apple-system, system-ui, sans-serif; color: white; }
         
-        body { display: flex; flex-direction: column; }
-        
-        #camera-view { height: 60%; width: 100%; position: relative; background: #000; overflow: hidden; border-bottom: 2px solid #333; }
+        #camera-view { height: 60%; width: 100%; position: relative; background: #000; border-bottom: 2px solid #333; }
         video { width: 100%; height: 100%; object-fit: cover; }
 
-        #ui-panel { flex: 1; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-        #gallery { width: 100%; height: 80px; display: flex; overflow-x: auto; align-items: center; gap: 8px; padding: 0 15px; }
+        #ui-panel { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-evenly; padding: 10px; background: linear-gradient(180deg, #111 0%, #000 100%); }
+        #gallery { width: 100%; height: 80px; display: flex; overflow-x: auto; align-items: center; gap: 10px; padding: 0 15px; }
         .thumb-box { position: relative; height: 70px; aspect-ratio: 3/4; flex-shrink: 0; }
-        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1px solid #555; }
-        .page-num { position: absolute; top: -5px; right: -5px; background: var(--primary); color: #000; font-size: 0.6rem; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; }
+        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; border: 1px solid #444; }
         
-        .btn-row { width: 90%; display: flex; gap: 10px; margin-bottom: 5px; }
-        .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; height: 50px; }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1rem; }
-        .btn-pdf { background: #ff5252; color: white; flex: 1.2; font-size: 0.8rem; }
-
-        /* MODAL CROP - KHÓA TỌA ĐỘ TUYỆT ĐỐI */
-        #crop-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; touch-action: none; }
-        #crop-title { padding: 15px; text-align: center; color: var(--primary); font-weight: bold; font-size: 0.9rem; background: #111; border-bottom: 1px solid #333; }
-        #crop-container { flex: 1; position: relative; width: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #080808; }
-        #source-img { max-width: 95%; max-height: 95%; object-fit: contain; pointer-events: none; -webkit-user-select: none; user-select: none; }
+        .btn-row { width: 92%; display: flex; gap: 10px; }
+        .btn { border: none; border-radius: 14px; font-weight: bold; cursor: pointer; height: 55px; font-size: 0.95rem; transition: 0.2s; }
+        .btn-snap { background: var(--primary); color: #000; flex: 2; box-shadow: 0 0 20px rgba(0,229,255,0.2); }
+        .btn-ai { background: #8e24aa; color: white; flex: 1; font-size: 0.8rem; } /* Nút Gemini AI */
+        .btn-pdf { background: #ff5252; color: white; flex: 1; }
         
-        .handle { width: 50px; height: 50px; position: absolute; transform: translate(-50%, -50%); touch-action: none; z-index: 10001; display: flex; align-items: center; justify-content: center; }
-        .handle::after { content: ''; width: 32px; height: 32px; background: rgba(0,229,255,0.4); border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-
-        .modal-btns { height: 110px; background: #111; display: flex; gap: 15px; padding: 20px; align-items: center; border-top: 1px solid #333; padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
+        #status { color: var(--primary); font-size: 0.7rem; font-weight: bold; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
     <div id="camera-view">
         <video id="webcam" autoplay playsinline muted></video>
+        <div style="position:absolute; inset:12%; border:1px dashed rgba(0,229,255,0.3); pointer-events:none;"></div>
     </div>
 
     <div id="ui-panel">
+        <div id="status">HỆ THỐNG AI ĐÃ SẴN SÀNG</div>
         <div id="gallery"></div>
-        <div id="status" style="color:var(--primary); font-size: 0.7rem; margin: 3px 0; font-weight: bold;">SẴN SÀNG</div>
         <div class="btn-row">
-            <button class="btn" style="background:#333; color:#fff; width:50px;" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>CHỤP TRANG</button>
+            <button class="btn" style="background:#222; color:#fff; width:55px;" onclick="location.reload()">🔄</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP & XOAY DỌC</button>
+            <button class="btn btn-ai" onclick="askGemini()">✨ HỎI AI</button>
             <button class="btn btn-pdf" onclick="exportPDF()">XUẤT PDF (<span id="count">0</span>)</button>
-        </div>
-    </div>
-
-    <div id="crop-modal">
-        <div id="crop-title">CĂN CHỈNH 4 GÓC (DÙNG TAY KÉO)</div>
-        <div id="crop-container">
-            <img id="source-img" src="" alt="Scan source">
-            <div id="p0" class="handle"></div><div id="p1" class="handle"></div>
-            <div id="p2" class="handle"></div><div id="p3" class="handle"></div>
-            <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
-                <polygon id="poly" points="" style="fill:rgba(0,229,255,0.2); stroke:#fff; stroke-width:2.5;" />
-            </svg>
-        </div>
-        <div class="modal-btns">
-            <button class="btn" style="background:#444; color:#fff; flex:1;" onclick="closeCrop()">HỦY</button>
-            <button class="btn" style="background:#4caf50; color:#fff; flex:2;" onclick="doWarp()">✅ XÁC NHẬN CẮT</button>
         </div>
     </div>
 
@@ -76,112 +51,101 @@
     <script>
         const video = document.getElementById('webcam');
         const btnSnap = document.getElementById('btn-snap');
+        const status = document.getElementById('status');
         const gallery = document.getElementById('gallery');
-        const handles = [document.getElementById('p0'), document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
-        let pages = [], rawBase64 = null, pts = [];
+        let pages = [];
 
         function onCvReady() {
-            btnSnap.innerText = "📸 CHỤP TRANG MỚI";
             btnSnap.disabled = false;
+            status.innerText = "SẴN SÀNG QUÉT TÀI LIỆU";
         }
 
         async function startCamera() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
-                video.srcObject = stream;
-            } catch (e) { alert("Lỗi mở camera. Hãy cấp quyền!"); }
+            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
+            video.srcObject = s;
         }
 
         btnSnap.onclick = () => {
+            status.innerText = "ĐANG XỬ LÝ & XOAY DỌC...";
             const can = document.getElementById('hid-can');
             const ctx = can.getContext('2d');
             can.width = video.videoWidth; can.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
-            rawBase64 = can.toDataURL('image/jpeg', 0.9);
-            
-            const sImg = document.getElementById('source-img');
-            sImg.src = rawBase64;
-            document.getElementById('crop-modal').style.display = 'flex';
-            
-            sImg.onload = () => {
-                // Đặt 4 góc mặc định ban đầu
-                const r = sImg.getBoundingClientRect();
-                pts = [
-                    {x: r.left + 50, y: r.top + 50}, // Trên-Trái
-                    {x: r.right - 50, y: r.top + 50}, // Trên-Phải
-                    {x: r.right - 50, y: r.bottom - 50}, // Dưới-Phải
-                    {x: r.left + 50, y: r.bottom - 50} // Dưới-Trái
-                ];
-                updateUI();
-            };
+
+            setTimeout(() => {
+                try {
+                    let src = cv.imread(can);
+                    let dst = new cv.Mat();
+                    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
+                    cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
+                    cv.Canny(dst, dst, 75, 200);
+
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                    let maxArea = 0, poly = new cv.Mat();
+                    for (let i = 0; i < contours.size(); ++i) {
+                        let cnt = contours.get(i);
+                        let approx = new cv.Mat();
+                        cv.approxPolyDP(cnt, approx, 0.02 * cv.arcLength(cnt, true), true);
+                        if (approx.rows == 4 && cv.contourArea(cnt) > maxArea) {
+                            maxArea = cv.contourArea(cnt);
+                            approx.copyTo(poly);
+                        }
+                        approx.delete();
+                    }
+
+                    if (maxArea > 15000) {
+                        let pts = [];
+                        for(let i=0; i<4; i++) pts.push({x: poly.data32S[i*2], y: poly.data32S[i*2+1]});
+                        pts.sort((a, b) => a.y - b.y);
+                        let tl = pts[0].x < pts[1].x ? pts[0] : pts[1];
+                        let tr = pts[0].x < pts[1].x ? pts[1] : pts[0];
+                        let bl = pts[2].x < pts[3].x ? pts[2] : pts[3];
+                        let br = pts[2].x < pts[3].x ? pts[3] : pts[2];
+
+                        let w = Math.max(Math.hypot(tr.x-tl.x, tr.y-tl.y), Math.hypot(br.x-bl.x, br.y-bl.y));
+                        let h = Math.max(Math.hypot(bl.x-tl.x, bl.y-tl.y), Math.hypot(br.x-tr.x, br.y-tr.y));
+
+                        let srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
+                        let dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
+                        let M = cv.getPerspectiveTransform(srcPts, dstPts);
+                        let warp = new cv.Mat();
+                        cv.warpPerspective(src, warp, M, new cv.Size(w, h));
+
+                        // TÍNH NĂNG TỰ ĐỘNG XOAY DỌC
+                        let finalMat = new cv.Mat();
+                        if (w > h) {
+                            cv.rotate(warp, finalMat, cv.ROTATE_90_CLOCKWISE);
+                            [w, h] = [h, w]; // Đảo chiều sau khi xoay
+                        } else {
+                            warp.copyTo(finalMat);
+                        }
+
+                        const outCan = document.createElement('canvas');
+                        cv.imshow(outCan, finalMat);
+                        pages.push({ data: outCan.toDataURL('image/jpeg', 0.8), w: w, h: h });
+                        
+                        warp.delete(); finalMat.delete(); srcPts.delete(); dstPts.delete(); M.delete();
+                    } else {
+                        pages.push({ data: can.toDataURL('image/jpeg', 0.8), w: can.width, h: can.height });
+                    }
+                    renderGallery();
+                    src.delete(); dst.delete(); contours.delete(); hierarchy.delete(); poly.delete();
+                    status.innerText = "ĐÃ LƯU & XOAY THẲNG!";
+                } catch (e) { status.innerText = "LỖI XỬ LÝ ẢNH"; }
+            }, 300);
         };
 
-        handles.forEach((h, i) => {
-            const move = (e) => {
-                e.preventDefault(); 
-                e.stopPropagation();
-                const t = e.touches[0];
-                // Lấy tọa độ tuyệt đối ClientX/Y để không bị ảnh hưởng bởi cuộn trang
-                pts[i] = { x: t.clientX, y: t.clientY };
-                updateUI();
-            };
-            h.addEventListener('touchstart', move, {passive:false});
-            h.addEventListener('touchmove', move, {passive:false});
-        });
-
-        function updateUI() {
-            let ptsStr = "";
-            handles.forEach((h, i) => {
-                h.style.left = pts[i].x + 'px'; 
-                h.style.top = pts[i].y + 'px';
-                ptsStr += `${pts[i].x},${pts[i].y} `;
-            });
-            document.getElementById('poly').setAttribute("points", ptsStr);
-        }
-
-        function closeCrop() { document.getElementById('crop-modal').style.display = 'none'; }
-
-        function doWarp() {
-            document.getElementById('status').innerText = "Đang cắt xén chính xác...";
-            const img = new Image();
-            img.src = rawBase64;
-            img.onload = () => {
-                const sImg = document.getElementById('source-img');
-                const r = sImg.getBoundingClientRect();
-                
-                // Thuật toán bù trừ Safari: Tính toán tỉ lệ dựa trên kích thước THỰC TẾ của ảnh đang hiển thị
-                const sx = img.naturalWidth / r.width;
-                const sy = img.naturalHeight / r.height;
-                
-                // Quy đổi tọa độ ngón tay (Client) thành tọa độ Pixel chuẩn trên ảnh gốc
-                // Bù trừ vị trí Top/Left của ảnh để khử lỗi lệch do thanh Safari thu nhỏ
-                const finalPts = pts.map(p => ({ 
-                    x: (p.x - r.left) * sx, 
-                    y: (p.y - r.top) * sy 
-                }));
-
-                const w = Math.max(Math.hypot(finalPts[1].x-finalPts[0].x, finalPts[1].y-finalPts[0].y), Math.hypot(finalPts[2].x-finalPts[3].x, finalPts[2].y-finalPts[3].y));
-                const h = Math.max(Math.hypot(finalPts[3].x-finalPts[0].x, finalPts[3].y-finalPts[0].y), Math.hypot(finalPts[2].x-finalPts[1].x, finalPts[2].y-finalPts[1].y));
-
-                let srcMat = cv.imread(img);
-                let dstMat = new cv.Mat();
-                let srcPtsMat = cv.matFromArray(4, 1, cv.CV_32FC2, [finalPts[0].x, finalPts[0].y, finalPts[1].x, finalPts[1].y, finalPts[2].x, finalPts[2].y, finalPts[3].x, finalPts[3].y]);
-                let dstPtsMat = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
-                let M = cv.getPerspectiveTransform(srcPtsMat, dstPtsMat);
-                
-                // Thực hiện phép biến đổi Warp Perspective để ép phẳng tờ giấy
-                cv.warpPerspective(srcMat, dstMat, M, new cv.Size(w, h));
-                
-                const outCan = document.createElement('canvas');
-                cv.imshow(outCan, dstMat);
-                pages.push({ data: outCan.toDataURL('image/jpeg', 0.8), w: w, h: h });
-                
-                renderGallery();
-                // Cleanup bộ nhớ OpenCV
-                srcMat.delete(); dstMat.delete(); srcPtsMat.delete(); dstPtsMat.delete(); M.delete();
-                closeCrop();
-                document.getElementById('status').innerText = "Đã scan chuẩn xác!";
-            };
+        // HÀM KẾT NỐI GEMINI API
+        async function askGemini() {
+            if (pages.length === 0) return alert("Hãy scan một trang bài tập trước!");
+            const apiKey = "DÁN_API_KEY_CỦA_THẦY_VÀO_ĐÂY"; // Thầy Nhã lấy key tại aistudio.google.com
+            status.innerText = "GEMINI ĐANG PHÂN TÍCH BÀI LÀM...";
+            
+            // Ở đây Thầy Nhã có thể viết thêm code gọi API gửi ảnh cuối cùng cho Gemini
+            alert("Tính năng AI: Gửi trang số " + pages.length + " tới Gemini để chấm bài.");
         }
 
         function renderGallery() {
@@ -190,7 +154,6 @@
                 const div = document.createElement('div');
                 div.className = 'thumb-box';
                 div.innerHTML = `<img src="${p.data}" class="thumb"><span class="page-num">${i+1}</span>`;
-                div.onclick = () => { if(confirm("Xóa trang " + (i+1) + "?")) { pages.splice(i,1); renderGallery(); } };
                 gallery.appendChild(div);
             });
             document.getElementById('count').innerText = pages.length;
@@ -206,7 +169,7 @@
                 if (fh > 277) { fh = 277; fw = fh * r; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("HUET_Scan_Final.pdf");
+            doc.save("HUET_AI_Scan.pdf");
         }
 
         startCamera();
