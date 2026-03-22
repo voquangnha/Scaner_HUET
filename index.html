@@ -3,206 +3,170 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HUET SCANNER v6.0 - FINAL STANDARD FIX</title>
+    <title>HUET SCANNER v6.5 - PRECISION CROP</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script async src="https://docs.opencv.org/4.5.4/opencv.js" onload="onCvReady()"></script>
     <style>
-        :root { --primary: #00e5ff; --bg: #0b0b0b; --panel: #1a1a1a; }
-        
+        :root { --primary: #00e5ff; --bg: #000; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        
-        html, body { 
-            margin: 0; padding: 0; width: 100%; 
-            height: 100dvh; /* dvh (Dynamic Viewport Height) fix cho Safari iPhone */
-            overflow: hidden; background: #000; 
-            font-family: -apple-system, system-ui, sans-serif; 
-        }
-        
+        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background: #000; font-family: -apple-system, system-ui, sans-serif; }
         body { display: flex; flex-direction: column; }
         
-        /* 1. KHUNG NGẮM CAMERA (55% dvh, ép tỉ lệ 3:4 dọc) */
-        #camera-section { 
-            width: 100%; height: 55dvh; position: relative; 
-            background: #000; overflow: hidden; border-bottom: 2px solid #333; 
-            display: flex; justify-content: center; align-items: center;
-        }
-        
-        #aspect-ratio-box {
-            height: 98%; /* Ngắm gần tràn viền */
-            aspect-ratio: 3 / 4; /* Ép tỉ lệ chuẩn của tờ giấy dọc */
-            position: relative;
-            overflow: hidden;
-            border-radius: 6px;
-        }
-        
-        video { 
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            object-fit: cover; /* Tràn viền trong khung 3:4 */
-        }
-        
-        /* Lưới ngắm xanh - Cần ngắm tờ giấy nằm trong lưới này */
-        .scan-grid {
-            position: absolute;
-            inset: 8%; /* Chừa lề */
-            border: 1.5px dashed var(--primary);
-            pointer-events: none;
-            opacity: 0.6;
-        }
+        #camera-view { height: 65dvh; width: 100%; position: relative; border-bottom: 2px solid #333; }
+        video { width: 100%; height: 100%; object-fit: cover; }
 
-        /* 2. BẢNG ĐIỀU KHIỂN (flex: 1 còn lại, luôn hiển thị trên Tab bar Safari) */
-        #ui-panel { 
-            flex: 1; background: var(--bg); display: flex; 
-            flex-direction: column; align-items: center; justify-content: space-between; 
-            padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); /* dvh fix cho iPhone tai thỏ */
-        }
+        #ui-panel { flex: 1; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; padding-bottom: env(safe-area-inset-bottom); }
+        #gallery { width: 100%; height: 70px; display: flex; overflow-x: auto; align-items: center; gap: 10px; padding: 0 15px; }
+        .thumb { width: 45px; height: 60px; object-fit: cover; border-radius: 4px; border: 1.5px solid #555; }
         
-        #gallery { width: 100%; height: 80px; display: flex; overflow-x: auto; align-items: center; gap: 8px; padding: 0 15px; }
-        .thumb-box { position: relative; height: 75px; aspect-ratio: 3/4; flex-shrink: 0; }
-        .thumb { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; border: 1.5px solid #444; }
-        .page-num { position: absolute; top: -5px; right: -5px; background: var(--primary); color: #000; font-size: 0.65rem; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: bold; }
+        .btn-row { width: 90%; display: flex; gap: 10px; margin-top: 10px; }
+        .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; height: 50px; font-size: 0.9rem; }
+        .btn-snap { background: var(--primary); color: #000; flex: 2; }
+        .btn-pdf { background: #ff5252; color: white; flex: 1; }
+
+        /* MODAL CROP - GIAO DIỆN CHỈNH TAY SIÊU CHUẨN */
+        #crop-modal { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; }
+        #crop-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #source-img { max-width: 95%; max-height: 85%; object-fit: contain; pointer-events: none; }
         
-        .btn-row { width: 92%; display: flex; gap: 10px; margin-bottom: 5px; }
-        .btn { border: none; border-radius: 14px; font-weight: bold; cursor: pointer; height: 52px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        .btn:active { opacity: 0.7; transform: scale(0.97); }
-        .btn-snap { background: var(--primary); color: #000; flex: 2; font-size: 1rem; box-shadow: 0 4px 15px rgba(0,229,255,0.2); }
-        .btn-pdf { background: #ff5252; color: white; flex: 1; font-size: 0.8rem; }
-        .btn-reset { background: #333; color: white; width: 52px; font-size: 1.1rem; }
+        /* Điểm kéo */
+        .handle { width: 44px; height: 44px; position: absolute; transform: translate(-50%, -50%); touch-action: none; z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .handle::after { content: ''; width: 28px; height: 28px; background: rgba(0,229,255,0.4); border: 2px solid #fff; border-radius: 50%; }
+
+        .modal-footer { height: 100px; background: #111; display: flex; gap: 15px; padding: 20px; align-items: center; border-top: 1px solid #333; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
     </style>
 </head>
 <body>
 
-    <div id="camera-section">
-        <div id="aspect-ratio-box">
-            <video id="webcam" autoplay playsinline muted></video>
-            <div class="scan-grid"></div>
-        </div>
+    <div id="camera-view">
+        <video id="webcam" autoplay playsinline muted></video>
+        <div style="position:absolute; inset:15%; border:1px dashed rgba(0,229,255,0.3); pointer-events:none;"></div>
     </div>
 
     <div id="ui-panel">
         <div id="gallery"></div>
-        <div id="status" style="color:var(--primary); font-size: 0.7rem; font-weight: bold; margin: 3px 0; letter-spacing: 0.5px;">SẴN SÀNG QUÉT TÀI LIỆU</div>
+        <div id="status" style="color:var(--primary); font-size: 0.7rem; font-weight: bold; margin-bottom: 5px;">SẴN SÀNG QUÉT</div>
         <div class="btn-row">
-            <button class="btn btn-reset" onclick="location.reload()">🔄</button>
-            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP TRANG</button>
+            <button class="btn" style="background:#333; color:#fff; width:50px;" onclick="location.reload()">🔄</button>
+            <button id="btn-snap" class="btn btn-snap" disabled>📸 CHỤP TRANG MỚI</button>
             <button class="btn btn-pdf" onclick="exportPDF()">PDF (<span id="count">0</span>)</button>
         </div>
     </div>
 
-    <canvas id="crop-can" style="display:none;"></canvas>
+    <div id="crop-modal">
+        <div style="padding: 10px; text-align: center; color: var(--primary); font-weight: bold; font-size: 0.85rem;">KÉO 4 GÓC XANH VÀO MÉP GIẤY</div>
+        <div id="crop-container">
+            <img id="source-img" src="">
+            <div id="p0" class="handle"></div><div id="p1" class="handle"></div>
+            <div id="p2" class="handle"></div><div id="p3" class="handle"></div>
+            <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+                <polygon id="poly" points="" style="fill:rgba(0,229,255,0.2); stroke:#fff; stroke-width:2;" />
+            </svg>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" style="background:#444; color:#fff; flex:1;" onclick="closeCrop()">HỦY</button>
+            <button class="btn" style="background:var(--primary); color:#000; flex:2;" onclick="doWarp()">✅ XÁC NHẬN CẮT</button>
+        </div>
+    </div>
+
+    <canvas id="hid-can" style="display:none;"></canvas>
 
     <script>
         const video = document.getElementById('webcam');
         const btnSnap = document.getElementById('btn-snap');
-        const status = document.getElementById('status');
-        const gallery = document.getElementById('gallery');
-        let pages = [];
+        const handles = [document.getElementById('p0'), document.getElementById('p1'), document.getElementById('p2'), document.getElementById('p3')];
+        let pages = [], rawData = null, pts = [];
 
-        function onCvReady() {
-            btnSnap.disabled = false;
-            status.innerText = "HỆ THỐNG ĐÃ SẴN SÀNG";
-        }
+        function onCvReady() { btnSnap.disabled = false; }
 
         async function startCamera() {
-            try {
-                const s = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment", width: 1280, height: 720 } 
-                });
-                video.srcObject = s;
-            } catch (e) { status.innerText = "LỖI CAMERA!"; }
+            const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 } });
+            video.srcObject = s;
         }
 
         btnSnap.onclick = () => {
-            status.innerText = "ĐANG TỰ ĐỘNG CẮT XÉN CHUẨN...";
             const can = document.getElementById('hid-can');
             const ctx = can.getContext('2d');
             can.width = video.videoWidth; can.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
-
-            setTimeout(() => {
-                try {
-                    let src = cv.imread(can);
-                    let dst = new cv.Mat();
-                    cv.cvtColor(src, dst, cv.COLOR_RGBA2GRAY);
-                    cv.GaussianBlur(dst, dst, new cv.Size(5, 5), 0);
-                    cv.Canny(dst, dst, 75, 200);
-
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    let maxArea = 0, poly = new cv.Mat();
-                    for (let i = 0; i < contours.size(); ++i) {
-                        let cnt = contours.get(i);
-                        let approx = new cv.Mat();
-                        cv.approxPolyDP(cnt, approx, 0.02 * cv.arcLength(cnt, true), true);
-                        if (approx.rows == 4 && cv.contourArea(cnt) > maxArea) {
-                            maxArea = cv.contourArea(cnt);
-                            approx.copyTo(poly);
-                        }
-                        approx.delete();
-                    }
-
-                    if (maxArea > 15000) {
-                        let pts = [];
-                        for(let i=0; i<4; i++) pts.push({x: poly.data32S[i*2], y: poly.data32S[i*2+1]});
-                        pts.sort((a, b) => a.y - b.y);
-                        let tl = pts[0].x < pts[1].x ? pts[0] : pts[1];
-                        let tr = pts[0].x < pts[1].x ? pts[1] : pts[0];
-                        let bl = pts[2].x < pts[3].x ? pts[2] : pts[3];
-                        let br = pts[2].x < pts[3].x ? pts[3] : pts[2];
-
-                        let w = Math.max(Math.hypot(tr.x-tl.x, tr.y-tl.y), Math.hypot(br.x-bl.x, br.y-bl.y));
-                        let h = Math.max(Math.hypot(bl.x-tl.x, bl.y-tl.y), Math.hypot(br.x-tr.x, br.y-tr.y));
-
-                        let srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, [tl.x, tl.y, tr.x, tr.y, br.x, br.y, bl.x, bl.y]);
-                        let dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
-                        let M = cv.getPerspectiveTransform(srcPts, dstPts);
-                        let warp = new cv.Mat();
-                        cv.warpPerspective(src, warp, M, new cv.Size(w, h));
-
-                        // XOAY DỌC 100%: Ảnh ngang -> Dọc, Ảnh dọc -> Giữ nguyên
-                        let finalMat = new cv.Mat();
-                        if (w > h) {
-                            cv.rotate(warp, finalMat, cv.ROTATE_90_CLOCKWISE);
-                            [w, h] = [h, w]; // Đảo chiều sau khi xoay
-                        } else { warp.copyTo(finalMat); }
-
-                        const outCan = document.createElement('canvas');
-                        cv.imshow(outCan, finalMat);
-                        pages.push({ data: outCan.toDataURL('image/jpeg', 0.8), w: w, h: h });
-                        
-                        warp.delete(); finalMat.delete(); srcPts.delete(); dstPts.delete(); M.delete();
-                    } else {
-                        status.innerText = "DÒ CẠNH LỖI, LƯU ẢNH GỐC (3:4)";
-                        
-                        // Nếu dò lỗi, ép ảnh camera về tỉ lệ 3:4 chuẩn thay vì ảnh méo
-                        const can34 = document.getElementById('hid-can'); // Tái sử dụng canvas
-                        const can34H = can34.height;
-                        const can34W = can34H * (3/4);
-                        const can34X = (can34.width - can34W) / 2;
-
-                        can34.width = can34W;
-                        ctx.drawImage(video, can34X, 0, can34W, can34H, 0, 0, can34W, can34H);
-                        
-                        pages.push({ data: can34.toDataURL('image/jpeg', 0.8), w: can34W, h: can34H });
-                    }
-                    renderGallery();
-                    src.delete(); dst.delete(); contours.delete(); hierarchy.delete(); poly.delete();
-                    status.innerText = "ĐÃ LƯU TRANG " + pages.length;
-                } catch (e) { status.innerText = "LỖI KỸ THUẬT"; }
-            }, 300);
+            rawData = can.toDataURL('image/jpeg', 0.95);
+            
+            const sImg = document.getElementById('source-img');
+            sImg.src = rawData;
+            document.getElementById('crop-modal').style.display = 'flex';
+            
+            sImg.onload = () => {
+                const r = sImg.getBoundingClientRect();
+                const pad = 40;
+                pts = [{x:r.left+pad,y:r.top+pad},{x:r.right-pad,y:r.top+pad},{x:r.right-pad,y:r.bottom-pad},{x:r.left+pad,y:r.bottom-pad}];
+                updateUI();
+            };
         };
 
+        handles.forEach((h, i) => {
+            const move = (e) => {
+                e.preventDefault(); e.stopPropagation();
+                const t = e.touches[0];
+                pts[i] = { x: t.clientX, y: t.clientY };
+                updateUI();
+            };
+            h.addEventListener('touchstart', move, {passive:false});
+            h.addEventListener('touchmove', move, {passive:false});
+        });
+
+        function updateUI() {
+            let s = "";
+            handles.forEach((h, i) => {
+                h.style.left = pts[i].x + 'px'; h.style.top = pts[i].y + 'px';
+                s += `${pts[i].x},${pts[i].y} `;
+            });
+            document.getElementById('poly').setAttribute("points", s);
+        }
+
+        function closeCrop() { document.getElementById('crop-modal').style.display = 'none'; }
+
+        function doWarp() {
+            const img = new Image();
+            img.src = rawData;
+            img.onload = () => {
+                const sImg = document.getElementById('source-img');
+                const r = sImg.getBoundingClientRect();
+                const sx = img.naturalWidth / r.width;
+                const sy = img.naturalHeight / r.height;
+                
+                const fP = pts.map(p => ({ x: (p.x - r.left) * sx, y: (p.y - r.top) * sy }));
+
+                const w = Math.max(Math.hypot(fP[1].x-fP[0].x, fP[1].y-fP[0].y), Math.hypot(fP[2].x-fP[3].x, fP[2].y-fP[3].y));
+                const h = Math.max(Math.hypot(fP[3].x-fP[0].x, fP[3].y-fP[0].y), Math.hypot(fP[2].x-fP[1].x, fP[2].y-fP[1].y));
+
+                let sM = cv.imread(img), dM = new cv.Mat();
+                let sPts = cv.matFromArray(4, 1, cv.CV_32FC2, [fP[0].x, fP[0].y, fP[1].x, fP[1].y, fP[2].x, fP[2].y, fP[3].x, fP[3].y]);
+                let dPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
+                let M = cv.getPerspectiveTransform(sPts, dPts);
+                cv.warpPerspective(sM, dM, M, new cv.Size(w, h));
+                
+                // TỰ ĐỘNG XOAY THẲNG NẾU NGANG
+                let finalM = new cv.Mat();
+                if (w > h) { cv.rotate(dM, finalM, cv.ROTATE_90_CLOCKWISE); [w,h] = [h,w]; } else { dM.copyTo(finalM); }
+
+                const outCan = document.createElement('canvas');
+                cv.imshow(outCan, finalM);
+                pages.push({ data: outCan.toDataURL('image/jpeg', 0.85), w: w, h: h });
+                
+                renderGallery();
+                sM.delete(); dM.delete(); finalM.delete(); sPts.delete(); dPts.delete(); M.delete();
+                closeCrop();
+            };
+        }
+
         function renderGallery() {
-            gallery.innerHTML = '';
+            const gal = document.getElementById('gallery');
+            gal.innerHTML = '';
             pages.forEach((p, i) => {
-                const div = document.createElement('div');
-                div.className = 'thumb-box';
-                div.innerHTML = `<img src="${p.data}" class="thumb"><span class="page-num">${i+1}</span>`;
-                div.onclick = () => { if(confirm("Xóa trang này?")) { pages.splice(i,1); renderGallery(); } };
-                gallery.appendChild(div);
+                const im = document.createElement('img');
+                im.src = p.data; im.className = 'thumb';
+                im.onclick = () => { if(confirm("Xóa trang này?")) { pages.splice(i,1); renderGallery(); } };
+                gal.appendChild(im);
             });
             document.getElementById('count').innerText = pages.length;
         }
@@ -217,7 +181,7 @@
                 if (fh > 277) { fh = 277; fw = fh * r; }
                 doc.addImage(p.data, 'JPEG', (210-fw)/2, 10, fw, fh);
             });
-            doc.save("Scan_HUET_v6.pdf");
+            doc.save("HUET_Scan_Precision.pdf");
         }
 
         startCamera();
